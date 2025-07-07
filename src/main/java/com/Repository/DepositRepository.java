@@ -2,8 +2,8 @@ package com.Repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.Model.Deposit;
+import com.Model.Deposite;
 
-public interface DepositRepository extends JpaRepository<Deposit, Long>{
+public interface DepositRepository extends JpaRepository<Deposite, Long>{
 
 }
