@@ -1,15 +1,6 @@
 package com.Model;
 
-
-
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-
-
+import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,24 +12,22 @@ public class Deposite {
 
     private double amount;
 
-    private LocalDateTime date;
+    private LocalDateTime timestamp;
 
     @ManyToOne
     @JoinColumn(name = "jar_id")
     private Jar jar;
 
-    // Constructors
-    public Deposite() {
-        this.date = LocalDateTime.now();
-    }
+    public Deposite() {}
 
-    public Deposite(double amount, Jar jar) {
+    public Deposite(double amount, LocalDateTime timestamp, Jar jar) {
         this.amount = amount;
+        this.timestamp = timestamp;
         this.jar = jar;
-        this.date = LocalDateTime.now();
     }
 
     // Getters and Setters
+
     public Long getId() {
         return id;
     }
@@ -55,12 +44,12 @@ public class Deposite {
         this.amount = amount;
     }
 
-    public LocalDateTime getDate() {
-        return date;
+    public LocalDateTime getTimestamp() {
+        return timestamp;
     }
 
-    public void setDate(LocalDateTime date) {
-        this.date = date;
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 
     public Jar getJar() {

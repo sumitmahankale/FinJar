@@ -11,6 +11,8 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 @Entity
 public class Jar {
@@ -24,7 +26,8 @@ public class Jar {
     private double targetAmount;
 
     private double savedAmount = 0.0;
-
+    
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
