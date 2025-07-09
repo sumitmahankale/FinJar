@@ -47,14 +47,22 @@ public class DepositeServiceIMPL implements DepositeService {
         jarRepository.save(jar); // Save updated jar
         Deposite savedDeposit = depositRepository.save(deposit); // Save deposit
 
-        // 🟩 Log activity
+        // 🟩 Log activity with percentage
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        jarActivityService.logActivity(jar, user, "Deposited ₹" + deposit.getAmount() + " to jar: " + jar.getTitle());
+        double saved = jar.getSavedAmount();
+        double target = jar.getTargetAmount();
+        double percentage = (target == 0) ? 100 : (saved / target) * 100;
+
+        String message = "Deposited ₹" + deposit.getAmount() + " to jar: " + jar.getTitle()
+                       + " — " + String.format("%.2f", percentage) + "% goal completed.";
+
+        jarActivityService.logActivity(jar, user, message);
 
         return savedDeposit;
     }
+
 
     @Override
     public List<Deposite> getDepositsForJar(Long jarId) {
