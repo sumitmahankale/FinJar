@@ -1,5 +1,132 @@
 import React, { useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Menu, X, Moon, Sun } from 'lucide-react';
+
+const Navbar = ({ isDarkMode, toggleDarkMode }) => {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  return (
+    <nav className={`w-full transition-colors duration-300 ${
+      isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+    } border-b`}>
+      <div className="container mx-auto px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-2">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+              isDarkMode ? 'bg-blue-600' : 'bg-blue-600'
+            }`}>
+              <span className="text-white font-bold text-sm">FJ</span>
+            </div>
+            <span className={`text-xl font-bold transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-400' : 'text-blue-800'
+            }`}>
+              FinJar
+            </span>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            <a href="#home" className={`transition-colors duration-300 hover:scale-105 ${
+              isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+            }`}>
+              Home
+            </a>
+            <a href="#features" className={`transition-colors duration-300 hover:scale-105 ${
+              isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+            }`}>
+              Features
+            </a>
+            <a href="#about" className={`transition-colors duration-300 hover:scale-105 ${
+              isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+            }`}>
+              About
+            </a>
+            <a href="#contact" className={`transition-colors duration-300 hover:scale-105 ${
+              isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+            }`}>
+              Contact
+            </a>
+          </div>
+
+          {/* Right side - Theme toggle and CTA */}
+          <div className="flex items-center space-x-4">
+            {/* Get Started Button - Desktop */}
+            <button className={`hidden md:block px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 ${
+              isDarkMode 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+            }`}>
+              Get Started
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleDarkMode}
+              className={`p-2 rounded-full transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' 
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
+            {/* Mobile Menu Toggle */}
+            <button
+              onClick={toggleMenu}
+              className={`md:hidden p-2 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-400 hover:bg-gray-800' : 'text-blue-600 hover:bg-gray-100'
+              }`}
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className={`md:hidden mt-4 py-4 border-t transition-colors duration-300 ${
+            isDarkMode ? 'border-gray-700' : 'border-gray-200'
+          }`}>
+            <div className="flex flex-col space-y-4">
+              <a href="#home" className={`transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+              }`}>
+                Home
+              </a>
+              <a href="#features" className={`transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+              }`}>
+                Features
+              </a>
+              <a href="#about" className={`transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+              }`}>
+                About
+              </a>
+              <a href="#contact" className={`transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
+              }`}>
+                Contact
+              </a>
+              <button className={`w-full mt-4 px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+              }`}>
+                Get Started
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
 
 export default function FinJarLanding() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -12,22 +139,11 @@ export default function FinJarLanding() {
     <div className={`min-h-screen transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
-      {/* Header with theme toggle */}
-      <header className="flex justify-end p-6">
-        <button
-          onClick={toggleDarkMode}
-          className={`p-3 rounded-full transition-all duration-300 ${
-            isDarkMode 
-              ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' 
-              : 'bg-white hover:bg-gray-100 text-gray-700 shadow-md'
-          }`}
-        >
-          {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
-        </button>
-      </header>
+      {/* Navbar */}
+      <Navbar isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
 
       {/* Main content */}
-      <div className="container mx-auto px-6 py-12">
+      <div className="container mx-auto px-6 py-12 min-h-[calc(100vh-80px)] flex items-center">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left side - Text content */}
           <div className="space-y-8 lg:pl-12">
@@ -70,7 +186,7 @@ export default function FinJarLanding() {
           <div className="flex justify-center">
             <div className="w-full max-w-lg">
               <img 
-                src="\mobile-application.png" 
+                src="/mobile-application.png" 
                 alt="FinJar App Interface" 
                 className="w-full h-auto"
               />
