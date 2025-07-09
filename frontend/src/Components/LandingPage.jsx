@@ -30,15 +30,17 @@ export default function FinJarLanding() {
       <div className="container mx-auto px-6 py-12">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left side - Text content */}
-          <div className="space-y-8">
+          <div className="space-y-8 lg:pl-12">
             <div className="space-y-6">
               <h1 className={`text-5xl lg:text-6xl font-bold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                <span className="text-blue-600">FinJar</span>
+                <span className={`transition-colors duration-300 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`}>FinJar</span>
                 <br />
                 <span className={`transition-colors duration-300 ${
-                  isDarkMode ? 'text-blue-300' : 'text-blue-400'
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}>
                   Your Personalized
                   <br />
@@ -49,7 +51,7 @@ export default function FinJarLanding() {
               </h1>
               
               <p className={`text-lg lg:text-xl leading-relaxed transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
                 FinJar is a goal-based fintech app that helps individuals build strong savings habits — one jar at a time.
               </p>
@@ -64,36 +66,14 @@ export default function FinJarLanding() {
             </button>
           </div>
 
-          {/* Right side - Image placeholder */}
+          {/* Right side - Image */}
           <div className="flex justify-center">
-            <div className={`w-full max-w-md h-96 rounded-2xl border-2 border-dashed flex items-center justify-center transition-colors duration-300 ${
-              isDarkMode 
-                ? 'border-gray-600 bg-gray-800' 
-                : 'border-gray-300 bg-white'
-            }`}>
-              <div className="text-center space-y-4">
-                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center transition-colors duration-300 ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-                }`}>
-                  <svg 
-                    className={`w-8 h-8 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`} 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <p className={`text-sm transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                }`}>
-                  SVG Image Placeholder
-                  <br />
-                  <span className="text-xs"></span>
-                </p>
-              </div>
+            <div className="w-full max-w-lg">
+              <img 
+                src="\mobile-application.png" 
+                alt="FinJar App Interface" 
+                className="w-full h-auto"
+              />
             </div>
           </div>
         </div>
