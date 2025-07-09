@@ -1,16 +1,19 @@
-package com.Service;
+package com.service;
 
-
-import com.Model.Deposite;
-import com.Model.Jar;
-import com.Repository.DepositRepository;
-import com.Repository.JarRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.model.Deposite;
+import com.model.Jar;
+import com.model.User;
+import com.repository.DepositRepository;
+import com.repository.JarRepository;
+import com.repository.UserRepository;
 
 @Service
 public class DepositeServiceIMPL implements DepositeService {
@@ -20,9 +23,15 @@ public class DepositeServiceIMPL implements DepositeService {
 
     @Autowired
     private JarRepository jarRepository;
+    
+    @Autowired
+    private JarActivityService jarActivityService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Override
-    public Deposite addDepositToJar(Long jarId, Deposite deposit) {
+    public Deposite addDepositToJar(Long jarId, Deposite deposit, Long userId) {
         Optional<Jar> optionalJar = jarRepository.findById(jarId);
         if (!optionalJar.isPresent()) {
             throw new RuntimeException("Jar not found with id: " + jarId);
@@ -32,11 +41,19 @@ public class DepositeServiceIMPL implements DepositeService {
         deposit.setJar(jar);
         deposit.setTimestamp(LocalDateTime.now());
 
-        // Update jar's savedAmount
+        // Update savedAmount
         jar.setSavedAmount(jar.getSavedAmount() + deposit.getAmount());
 
-        jarRepository.save(jar); // Update jar
-        return depositRepository.save(deposit);
+        jarRepository.save(jar); // Save updated jar
+        Deposite savedDeposit = depositRepository.save(deposit); // Save deposit
+
+        // 🟩 Log activity
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        jarActivityService.logActivity(jar, user, "Deposited ₹" + deposit.getAmount() + " to jar: " + jar.getTitle());
+
+        return savedDeposit;
     }
 
     @Override
@@ -54,6 +71,20 @@ public class DepositeServiceIMPL implements DepositeService {
 
         jarRepository.save(jar);
         depositRepository.deleteById(depositId);
+
+        // ✅ Log activity
+        User user = jar.getUser(); // if `jar.getUser()` works, otherwise fetch manually
+        if (user == null) {
+            user = userRepository.findById(deposit.getJar().getUser().getId())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+        }
+
+        jarActivityService.logActivity(
+            jar,
+            user,
+            "Deleted deposit of ₹" + deposit.getAmount() + " from jar: " + jar.getTitle()
+        );
     }
+
 }
 

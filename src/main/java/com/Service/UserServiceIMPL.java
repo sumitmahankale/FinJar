@@ -1,12 +1,12 @@
-package com.Service;
+package com.service;
 
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.Model.User;
-import com.Repository.UserRepository;
+import com.model.User;
+import com.repository.UserRepository;
 
 @Service
 public class UserServiceIMPL implements UserService {

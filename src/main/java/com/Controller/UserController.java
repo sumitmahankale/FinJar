@@ -1,4 +1,4 @@
-package com.Controller;
+package com.controller;
 
 import java.util.Optional;
 
@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.Model.User;
-import com.Service.UserService;
+import com.model.User;
+import com.service.UserService;
 
 @RestController
 @RequestMapping("/api/users")

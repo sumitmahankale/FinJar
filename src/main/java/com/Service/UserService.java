@@ -1,8 +1,8 @@
-package com.Service;
+package com.service;
 
 import java.util.Optional;
 
-import com.Model.User;
+import com.model.User;
 
 public interface UserService {
 

@@ -1,11 +1,11 @@
-package com.Service;
+package com.service;
 
 import java.util.List;
 
-import com.Model.Deposite;
+import com.model.Deposite;
 
 public interface DepositeService {
-	 Deposite addDepositToJar(Long jarId, Deposite deposit);
 	    List<Deposite> getDepositsForJar(Long jarId);
 	    void deleteDeposit(Long depositId);
+		Deposite addDepositToJar(Long jarId, Deposite deposit, Long userId);
 }

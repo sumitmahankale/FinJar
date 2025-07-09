@@ -1,20 +1,12 @@
-package com.Controller;
-
+package com.controller;
 
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.Model.Deposite;
-import com.Service.DepositeService;
+import com.model.Deposite;
+import com.service.DepositeService;
 
 @RestController
 @RequestMapping("/api/deposits")
@@ -24,10 +16,10 @@ public class DepositeController {
     @Autowired
     private DepositeService depositService;
 
-    // ➕ Add deposit to a specific jar
-    @PostMapping("/jar/{jarId}")
-    public Deposite addDepositToJar(@PathVariable Long jarId, @RequestBody Deposite deposit) {
-        return depositService.addDepositToJar(jarId, deposit);
+    // ➕ Add deposit to a specific jar by a user
+    @PostMapping("/jar/{jarId}/user/{userId}")
+    public Deposite addDepositToJar(@PathVariable Long jarId, @PathVariable Long userId, @RequestBody Deposite deposit) {
+        return depositService.addDepositToJar(jarId, deposit, userId);
     }
 
     // 📥 Get all deposits for a specific jar

@@ -1,8 +1,10 @@
-package com.Controller;
+package com.controller;
+
 
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,35 +14,39 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.Model.Jar;
-import com.Service.JarService;
+import com.model.Jar;
+import com.service.JarService;
 
 @RestController
 @RequestMapping("/api/jars")
+@CrossOrigin
 public class JarController {
 
     @Autowired
     private JarService jarService;
 
-    @PostMapping
-    public Jar createJar(@RequestBody Jar jar) {
-        return jarService.createJar(jar);
+    // ✅ Create a jar for a specific user
+    @PostMapping("/user/{userId}")
+    public Jar createJar(@PathVariable Long userId, @RequestBody Jar jar) {
+        return jarService.createJar(jar, userId);
     }
 
+    // ✅ Get all jars for a specific user
     @GetMapping("/user/{userId}")
     public List<Jar> getJarsByUser(@PathVariable Long userId) {
         return jarService.getJarsByUserId(userId);
     }
 
+    // ✅ Update jar by ID
     @PutMapping("/{id}")
     public Jar updateJar(@PathVariable Long id, @RequestBody Jar jar) {
         return jarService.updateJar(id, jar);
     }
 
+    // ✅ Delete jar by ID
     @DeleteMapping("/{id}")
     public String deleteJar(@PathVariable Long id) {
         jarService.deleteJar(id);
         return "Jar deleted successfully";
     }
 }
-
