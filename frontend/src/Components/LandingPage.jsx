@@ -29,7 +29,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-14">
             <a href="#home" className={`transition-colors duration-300 hover:scale-105 ${
               isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
             }`}>
@@ -55,13 +55,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
           {/* Right side - Theme toggle and CTA */}
           <div className="flex items-center space-x-4">
             {/* Get Started Button - Desktop */}
-            <button className={`hidden md:block px-6 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 ${
-              isDarkMode 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-            }`}>
-              Get Started
-            </button>
+            
 
             {/* Theme Toggle */}
             <button
@@ -173,13 +167,17 @@ export default function FinJarLanding() {
               </p>
             </div>
 
-            <button className={`px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
-              isDarkMode 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
-                : 'bg-gray-800 hover:bg-gray-900 text-white shadow-lg'
-            }`}>
-              START NOW
-            </button>
+<button class="button">
+  Start Now
+  <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+    <path
+      fill-rule="evenodd"
+      d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 10.28a.75.75 0 000-1.06l-3-3a.75.75 0 10-1.06 1.06l1.72 1.72H8.25a.75.75 0 000 1.5h5.69l-1.72 1.72a.75.75 0 101.06 1.06l3-3z"
+      clip-rule="evenodd"
+    ></path>
+  </svg>
+</button>
+
           </div>
 
           {/* Right side - Image */}
