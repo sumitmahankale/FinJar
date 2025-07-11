@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { Menu, X, Moon, Sun } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Navbar = ({ isDarkMode, toggleDarkMode }) => {
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleGetStartedClick = () => {
+    navigate('/registration');
   };
 
   return (
@@ -55,7 +61,16 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
           {/* Right side - Theme toggle and CTA */}
           <div className="flex items-center space-x-4">
             {/* Get Started Button - Desktop */}
-            
+            <button 
+              onClick={handleGetStartedClick}
+              className={`hidden md:block px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+              }`}
+            >
+              Get Started
+            </button>
 
             {/* Theme Toggle */}
             <button
@@ -107,11 +122,14 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
               }`}>
                 Contact
               </a>
-              <button className={`w-full mt-4 px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
-                isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-              }`}>
+              <button 
+                onClick={handleGetStartedClick}
+                className={`w-full mt-4 px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+                }`}
+              >
                 Get Started
               </button>
             </div>
@@ -122,11 +140,11 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
   );
 };
 
-export default function FinJarLanding() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+export default function FinJarLanding({ isDarkMode, toggleDarkMode }) {
+  const navigate = useNavigate();
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
+  const handleStartNowClick = () => {
+    navigate('/registration');
   };
 
   return (
@@ -167,17 +185,23 @@ export default function FinJarLanding() {
               </p>
             </div>
 
-<button class="button">
-  Start Now
-  <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-    <path
-      fill-rule="evenodd"
-      d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 10.28a.75.75 0 000-1.06l-3-3a.75.75 0 10-1.06 1.06l1.72 1.72H8.25a.75.75 0 000 1.5h5.69l-1.72 1.72a.75.75 0 101.06 1.06l3-3z"
-      clip-rule="evenodd"
-    ></path>
-  </svg>
-</button>
-
+            <button 
+              onClick={handleStartNowClick}
+              className={`inline-flex items-center space-x-2 px-8 py-4 rounded-lg font-medium text-lg transition-all duration-300 transform hover:scale-105 ${
+                isDarkMode 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
+              }`}
+            >
+              <span>Start Now</span>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 10.28a.75.75 0 000-1.06l-3-3a.75.75 0 10-1.06 1.06l1.72 1.72H8.25a.75.75 0 000 1.5h5.69l-1.72 1.72a.75.75 0 101.06 1.06l3-3z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
           </div>
 
           {/* Right side - Image */}
