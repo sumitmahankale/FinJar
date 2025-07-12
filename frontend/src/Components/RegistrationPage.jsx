@@ -195,14 +195,16 @@ export default function FinJarRegistration({ isDarkMode = false }) {
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
                     Already have an account?{' '}
-                    <button 
-                      onClick={handleSignInClick}
-                      className={`font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
-                        isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
-                      }`}
-                    >
-                      Sign In
-                    </button>
+                    <a
+  href="#"
+  onClick={handleSignInClick}
+  className={`font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
+    isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+  }`}
+>
+  Sign In
+</a>
+
                   </span>
                 </div>
               </div>
