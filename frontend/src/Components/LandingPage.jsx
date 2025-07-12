@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 import { Target, PiggyBank, TrendingUp, Shield, Bell, Award, Zap, Users, Menu, X, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
 // Navbar Component with smooth scrolling
 const Navbar = ({ isDarkMode, toggleDarkMode }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
   
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleAbout = () => {
+    navigate('/about');
+    // Scroll to top immediately after navigation
+    window.scrollTo(0, 0);
+    console.log('Navigate to About');
   };
 
   const scrollToSection = (sectionId) => {
@@ -52,7 +61,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
             }`}>
               Features
             </button>
-            <button onClick={() => scrollToSection('about')} className={`transition-all duration-300 hover:scale-105 bg-transparent border-none ${
+            <button onClick={handleAbout} className={`transition-all duration-300 hover:scale-105 bg-transparent border-none ${
               isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
             }`}>
               About
@@ -106,7 +115,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
               }`}>
                 Features
               </button>
-              <button onClick={() => scrollToSection('about')} className={`text-left transition-colors duration-300 bg-transparent border-none ${
+              <button onClick={handleAbout} className={`text-left transition-colors duration-300 bg-transparent border-none ${
                 isDarkMode ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-800'
               }`}>
                 About
@@ -317,9 +326,8 @@ const Features = ({ isDarkMode }) => {
 
 // Main Landing Page Component
 export default function FinJarLanding({ isDarkMode, toggleDarkMode }) {
-
-
-const navigate = useNavigate();
+  const navigate = useNavigate();
+  
   const handleStartNowClick = () => {
     navigate('/registration');
     console.log('Navigate to registration');
@@ -406,17 +414,17 @@ const navigate = useNavigate();
       {/* Features Section */}
       <Features isDarkMode={isDarkMode} />
 
-      {/* Placeholder sections for About and Contact */}
-      <section id="about" className={`py-20 transition-colors duration-300 ${
+      {/* Placeholder section - About is now a separate page */}
+      <section className={`py-20 transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
       }`}>
         <div className="container mx-auto px-6 text-center">
           <h2 className={`text-4xl font-bold mb-6 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>About FinJar</h2>
+          }`}>Why Choose FinJar?</h2>
           <p className={`text-lg ${
             isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>Learn more about our mission and story...</p>
+          }`}>Discover the power of goal-based savings and transform your financial future...</p>
         </div>
       </section>
 

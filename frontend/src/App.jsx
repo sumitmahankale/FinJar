@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import FinJarLanding from './Components/LandingPage';
 import FinJarRegistration from './Components/RegistrationPage';
-
+import FinJarAbout from './Components/About';
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -21,7 +21,9 @@ function App() {
               toggleDarkMode={toggleDarkMode} 
             />
           } 
+          
         />
+        
         <Route 
           path="/registration" 
           element={
@@ -30,7 +32,16 @@ function App() {
             />
           } 
         />
+         <Route 
+          path="/about" 
+          element={
+            <FinJarAbout 
+              isDarkMode={isDarkMode} 
+            />
+          } 
+        />
       </Routes>
+      
     </Router>
   );
 }
