@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Target, PiggyBank, TrendingUp, Shield, Bell, Award, Zap, Users, Menu, X, Moon, Sun } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 // Navbar Component with smooth scrolling
 const Navbar = ({ isDarkMode, toggleDarkMode }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -318,8 +318,10 @@ const Features = ({ isDarkMode }) => {
 // Main Landing Page Component
 export default function FinJarLanding({ isDarkMode, toggleDarkMode }) {
 
+
+const navigate = useNavigate();
   const handleStartNowClick = () => {
-    // Navigate to registration - you can implement this based on your routing
+    navigate('/registration');
     console.log('Navigate to registration');
   };
 
