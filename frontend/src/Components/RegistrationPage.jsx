@@ -212,7 +212,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
             <div className="w-full flex justify-center">
               <div className="w-full max-w-md lg:max-w-lg">
                 <img 
-                  src="\ChatGPT Image Jul 11, 2025, 07_44_50 PM.png" 
+                  src="\ChatGPT Image Jul 12, 2025, 08_58_13 AM.png" 
                   alt="FinJar App Interface" 
                   className="w-full h-auto"
                 />

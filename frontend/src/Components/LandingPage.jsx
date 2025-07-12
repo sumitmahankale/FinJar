@@ -4,16 +4,12 @@ import { useNavigate } from 'react-router-dom';
 
 const Navbar = ({ isDarkMode, toggleDarkMode }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigate = useNavigate();
-
+  
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleGetStartedClick = () => {
-    navigate('/registration');
-  };
-
+ 
   return (
     <nav className={`w-full transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
@@ -61,16 +57,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
           {/* Right side - Theme toggle and CTA */}
           <div className="flex items-center space-x-4">
             {/* Get Started Button - Desktop */}
-            <button 
-              onClick={handleGetStartedClick}
-              className={`hidden md:block px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
-                isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-              }`}
-            >
-              Get Started
-            </button>
+            
 
             {/* Theme Toggle */}
             <button
@@ -122,16 +109,7 @@ const Navbar = ({ isDarkMode, toggleDarkMode }) => {
               }`}>
                 Contact
               </a>
-              <button 
-                onClick={handleGetStartedClick}
-                className={`w-full mt-4 px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  isDarkMode 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                }`}
-              >
-                Get Started
-              </button>
+              
             </div>
           </div>
         )}
