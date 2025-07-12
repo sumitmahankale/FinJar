@@ -213,16 +213,7 @@ const AboutPage = ({ isDarkMode = false }) => {
             <div className={`transition-all duration-1000 transform ${
               isVisible.mission ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'
             }`}>
-              <div className="relative">
-                <div className={`absolute inset-0 bg-gradient-to-r rounded-3xl blur opacity-75 ${
-                  isDarkMode ? 'from-blue-600 to-purple-600' : 'from-blue-500 to-purple-500'
-                }`}></div>
-                <img
-                  src="https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=600&h=400&fit=crop"
-                  alt="Team collaboration"
-                  className="relative rounded-3xl shadow-2xl"
-                />
-              </div>
+              
             </div>
           </div>
         </div>
