@@ -1,4 +1,5 @@
 package com.service;
+import com.util.JwtUtil;
 
 import java.util.List;
 
@@ -26,6 +27,33 @@ public class JarServiceIMPL implements JarService{
 	@Autowired
 	private DepositRepository depositRepository;
 
+	@Autowired
+	private JwtUtil jwtUtil;
+
+	
+	@Override
+	public Jar createJarFromToken(Jar jar, String authHeader) {
+	    // 1. Extract token
+	    String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+
+	    // 2. Extract email
+	    String email = jwtUtil.extractUsername(token);
+
+	    // 3. Fetch user by email
+	    User user = userRepository.findByEmail(email)
+	        .orElseThrow(() -> new RuntimeException("User not found for email: " + email));
+
+	    // 4. Set user to jar
+	    jar.setUser(user);
+	    jar.setSavedAmount(0.0);
+
+	    Jar savedJar = jarRepository.save(jar);
+
+	    // 5. Log activity
+	    jarActivityService.logActivity(savedJar, user, "Created Jar: " + savedJar.getTitle());
+
+	    return savedJar;
+	}
     @Override
     public Jar createJar(Jar jar, Long userId) {
         User user = userRepository.findById(userId)

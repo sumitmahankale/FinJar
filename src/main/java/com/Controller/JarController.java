@@ -22,13 +22,13 @@ import com.service.JarService;
 @CrossOrigin
 public class JarController {
 
-    @Autowired
+    @Autowired	
     private JarService jarService;
 
     // ✅ Create a jar for a specific user
-    @PostMapping("/user/{userId}")
-    public Jar createJar(@PathVariable Long userId, @RequestBody Jar jar) {
-        return jarService.createJar(jar, userId);
+    @PostMapping
+    public Jar createJar(@RequestBody Jar jar, @RequestHeader("Authorization") String authHeader) {
+        return jarService.createJarFromToken(jar, authHeader);
     }
 
     // ✅ Get all jars for a specific user

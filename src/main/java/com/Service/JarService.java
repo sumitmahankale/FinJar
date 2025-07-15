@@ -9,6 +9,7 @@ public interface JarService {
 	    Jar updateJar(Long id, Jar updatedJar);
 	    void deleteJar(Long id);
 	    Jar createJar(Jar jar, Long userId);
+	    Jar createJarFromToken(Jar jar, String authHeader);
 
 	    
 	    
