@@ -30,7 +30,17 @@ public class JarServiceIMPL implements JarService{
 	@Autowired
 	private JwtUtil jwtUtil;
 
-	
+	@Override
+	public List<Jar> getJarsByToken(String authHeader) {
+	    String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+	    String email = jwtUtil.extractUsername(token);
+
+	    User user = userRepository.findByEmail(email)
+	        .orElseThrow(() -> new RuntimeException("User not found"));
+
+	    return jarRepository.findByUserId(user.getId());
+	}
+
 	@Override
 	public Jar createJarFromToken(Jar jar, String authHeader) {
 	    // 1. Extract token

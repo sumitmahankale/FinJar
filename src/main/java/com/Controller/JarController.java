@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,8 +34,8 @@ public class JarController {
 
     // ✅ Get all jars for a specific user
     @GetMapping("/user/{userId}")
-    public List<Jar> getJarsByUser(@PathVariable Long userId) {
-        return jarService.getJarsByUserId(userId);
+    public List<Jar> getMyJars(@RequestHeader("Authorization") String authHeader) {
+        return jarService.getJarsByToken(authHeader);
     }
 
     // ✅ Update jar by ID

@@ -10,6 +10,7 @@ public interface JarService {
 	    void deleteJar(Long id);
 	    Jar createJar(Jar jar, Long userId);
 	    Jar createJarFromToken(Jar jar, String authHeader);
+	    List<Jar> getJarsByToken(String authHeader);
 
 	    
 	    
