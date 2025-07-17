@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
-
+import { useNavigate } from 'react-router-dom';
 export default function FinJarLogin({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +30,14 @@ export default function FinJarLogin({ isDarkMode = false }) {
       [name]: value
     }));
   };
+  const navigate = useNavigate();
 
+ const handleregistration = () => {
+    navigate('/registration');
+    // Scroll to top immediately after navigation
+    window.scrollTo(0, 0);
+    console.log('Navigate to Registration');
+  };
   const validateForm = () => {
     if (!formData.email.trim()) {
       showAlert('warning', 'Validation Error', 'Please enter your email address');
@@ -126,12 +133,6 @@ export default function FinJarLogin({ isDarkMode = false }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSignUpClick = () => {
-    showAlert('info', 'Redirecting...', 'Taking you to the sign-up page');
-    // Navigate to sign up page
-    console.log('Navigate to sign up');
   };
 
   const handleForgotPasswordClick = () => {
@@ -370,7 +371,7 @@ export default function FinJarLogin({ isDarkMode = false }) {
                     Don't have an account?{' '}
                     <a
                       href="#"
-                      onClick={handleSignUpClick}
+                      onClick={handleregistration}
                       className={`font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
                         isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
                       }`}

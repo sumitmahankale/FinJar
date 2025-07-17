@@ -27,7 +27,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     navigate('/login');
     // Scroll to top immediately after navigation
     window.scrollTo(0, 0);
-    console.log('Navigate to About');
+    console.log('Navigate to Login');
   };
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -163,7 +163,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
 
   const handleSignInClick = () => {
     showAlert('info', 'Redirecting...', 'Taking you to the sign-in page');
-    // Navigate to sign in page or show sign in modal
+    navigate('/login');
     console.log('Navigate to sign in');
   };
 
