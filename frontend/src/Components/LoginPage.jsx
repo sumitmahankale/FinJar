@@ -384,13 +384,16 @@ export default function FinJarLogin({ isDarkMode = false }) {
 
             {/* Right side - Image */}
             <div className="w-full flex justify-center lg:justify-end">
-              <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl">
-                <img 
-                  src="/ChatGPT Image Jul 12, 2025, 08_58_13 AM.png" 
-                  alt="FinJar App Interface" 
-                  className="w-full h-auto"
-                />
-              </div>
+              <div className="w-full flex justify-center lg:justify-end">
+  <div className="w-full max-w-sm lg:max-w-md">
+    <img 
+      src="/ChatGPT Image Jul 17, 2025, 12_41_26 PM.png" 
+      alt="FinJar App Interface" 
+      className="w-full h-auto"
+    />
+  </div>
+</div>
+
             </div>
           </div>
         </div>
