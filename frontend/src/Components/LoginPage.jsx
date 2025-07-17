@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowRight, User, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, ArrowRight, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 
-export default function FinJarRegistration({ isDarkMode = false }) {
+export default function FinJarLogin({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [alert, setAlert] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    password: '',
-    confirmPassword: ''
+    password: ''
   });
 
   // Custom SweetAlert-style alert function
@@ -19,22 +15,12 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     setAlert({ type, title, text });
   };
 
-  const navigate = useNavigate();
   const closeAlert = () => {
     setAlert(null);
   };
- const handlelogin = () => {
-    navigate('/login');
-    // Scroll to top immediately after navigation
-    window.scrollTo(0, 0);
-    console.log('Navigate to About');
-  };
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
   };
 
   const handleInputChange = (e) => {
@@ -46,11 +32,6 @@ export default function FinJarRegistration({ isDarkMode = false }) {
   };
 
   const validateForm = () => {
-    if (!formData.name.trim()) {
-      showAlert('warning', 'Validation Error', 'Please enter your full name');
-      return false;
-    }
-    
     if (!formData.email.trim()) {
       showAlert('warning', 'Validation Error', 'Please enter your email address');
       return false;
@@ -63,17 +44,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     }
     
     if (!formData.password) {
-      showAlert('warning', 'Validation Error', 'Please enter a password');
-      return false;
-    }
-    
-    if (formData.password.length < 6) {
-      showAlert('warning', 'Validation Error', 'Password must be at least 6 characters long');
-      return false;
-    }
-    
-    if (formData.password !== formData.confirmPassword) {
-      showAlert('warning', 'Validation Error', 'Passwords do not match');
+      showAlert('warning', 'Validation Error', 'Please enter your password');
       return false;
     }
     
@@ -89,43 +60,39 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     
     try {
       // Use the correct backend URL (assuming Spring Boot runs on port 8080)
-      const response = await fetch('http://localhost:8080/api/users/register', {
+      const response = await fetch('http://localhost:8080/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name,
           email: formData.email,
           password: formData.password
         })
       });
 
       if (response.ok) {
-        // Check if response has content before parsing JSON
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          await response.json(); // Parse JSON response
-        }
+        const data = await response.json();
         
-        showAlert('success', 'Registration Successful!', 'Your account has been created successfully. You can now sign in.');
+        // Store JWT token (you might want to use a more secure method)
+        localStorage.setItem('authToken', data.token);
+        
+        showAlert('success', 'Login Successful!', 'Welcome back! You will be redirected to your dashboard.');
         
         // Reset form
         setFormData({
-          name: '',
           email: '',
-          password: '',
-          confirmPassword: ''
+          password: ''
         });
         
-        // Optionally redirect to login page after a delay
+        // Redirect to dashboard after a delay
         setTimeout(() => {
-          handleSignInClick();
+          handleDashboardRedirect();
         }, 2000);
         
       } else {
         // Handle error response
-        let errorMessage = 'An error occurred during registration. Please try again.';
+        let errorMessage = 'Invalid email or password. Please try again.';
         
         try {
           const contentType = response.headers.get('content-type');
@@ -143,10 +110,10 @@ export default function FinJarRegistration({ isDarkMode = false }) {
           console.error('Error parsing response:', parseError);
         }
         
-        showAlert('error', 'Registration Failed', errorMessage);
+        showAlert('error', 'Login Failed', errorMessage);
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Login error:', error);
       
       // Check if it's a network error or server not available
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -161,10 +128,21 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     }
   };
 
-  const handleSignInClick = () => {
-    showAlert('info', 'Redirecting...', 'Taking you to the sign-in page');
-    // Navigate to sign in page or show sign in modal
-    console.log('Navigate to sign in');
+  const handleSignUpClick = () => {
+    showAlert('info', 'Redirecting...', 'Taking you to the sign-up page');
+    // Navigate to sign up page
+    console.log('Navigate to sign up');
+  };
+
+  const handleForgotPasswordClick = () => {
+    showAlert('info', 'Forgot Password', 'Password reset functionality will be implemented soon.');
+    console.log('Navigate to forgot password');
+  };
+
+  const handleDashboardRedirect = () => {
+    showAlert('info', 'Redirecting...', 'Taking you to your dashboard');
+    // Navigate to dashboard
+    console.log('Navigate to dashboard');
   };
 
   // Alert icon component
@@ -184,7 +162,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
   };
 
   return (
-    <div className={`min-h-screen w-full transition-colors duration-300 ${
+    <div className={`min-h-screen w-screen transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     } relative overflow-hidden`}>
       
@@ -264,56 +242,35 @@ export default function FinJarRegistration({ isDarkMode = false }) {
       )}
 
       {/* Main content */}
-      <div className="w-full min-h-screen px-4 sm:px-6 lg:px-8 flex items-center">
-        <div className="w-full">
-          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full">
-            {/* Left side - Registration Form */}
-            <div className="w-full space-y-6 lg:pr-8 flex flex-col items-center lg:items-center lg:pl-16">
-              <div className="space-y-4 text-center lg:text-center">
+      <div className="w-screen min-h-screen px-4 sm:px-6 lg:px-8 flex items-center">
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full min-h-screen lg:min-h-0">
+            {/* Left side - Login Form */}
+            <div className="w-full space-y-6 lg:pr-8 flex flex-col items-center lg:items-start lg:pl-8 xl:pl-16">
+              <div className="space-y-4 text-center lg:text-left">
                 <h1 className={`text-4xl lg:text-5xl font-bold transition-colors duration-300 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   <span className={`transition-colors duration-300 ${
                     isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                  }`}>Join</span>
+                  }`}>Welcome</span>
                   <br />
                   <span className={`transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
-                    FinJar
+                    Back
                   </span>
                 </h1>
                 
                 <p className={`text-lg leading-relaxed transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Start your savings journey today. Create your account and build better financial habits.
+                  Sign in to your FinJar account and continue your savings journey.
                 </p>
               </div>
 
-              {/* Registration Form */}
-              <div className="space-y-4 w-full max-w-md mx-auto">
-                {/* Name Field */}
-                <div className="relative">
-                  <User className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`} />
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Full Name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    disabled={isLoading}
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50'
-                    }`}
-                    required
-                  />
-                </div>
-
+              {/* Login Form */}
+              <div className="space-y-4 w-full max-w-md mx-auto lg:mx-0">
                 {/* Email Field */}
                 <div className="relative">
                   <Mail className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
@@ -368,37 +325,17 @@ export default function FinJarRegistration({ isDarkMode = false }) {
                   </button>
                 </div>
 
-                {/* Confirm Password Field */}
-                <div className="relative">
-                  <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`} />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    placeholder="Confirm Password"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    disabled={isLoading}
-                    className={`w-full pl-10 pr-12 py-3 rounded-lg border transition-all duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50'
-                    }`}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={toggleConfirmPasswordVisibility}
-                    disabled={isLoading}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-md transition-all duration-200 hover:scale-110 disabled:opacity-50 ${
-                      isDarkMode 
-                        ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700' 
-                        : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'
+                {/* Forgot Password Link */}
+                <div className="text-right">
+                  <a
+                    href="#"
+                    onClick={handleForgotPasswordClick}
+                    className={`text-sm font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
+                      isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
                     }`}
                   >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                    Forgot Password?
+                  </a>
                 </div>
 
                 {/* Submit Button */}
@@ -415,30 +352,30 @@ export default function FinJarRegistration({ isDarkMode = false }) {
                   {isLoading ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Creating Account...</span>
+                      <span>Signing In...</span>
                     </>
                   ) : (
                     <>
-                      <span>Create Account</span>
+                      <span>Sign In</span>
                       <ArrowRight size={20} />
                     </>
                   )}
                 </button>
 
-                {/* Sign In Link */}
+                {/* Sign Up Link */}
                 <div className="text-center pt-2">
                   <span className={`transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    Already have an account?{' '}
+                    Don't have an account?{' '}
                     <a
                       href="#"
-                      onClick={handlelogin}
+                      onClick={handleSignUpClick}
                       className={`font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
                         isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
                       }`}
                     >
-                      Sign In
+                      Sign Up
                     </a>
                   </span>
                 </div>
@@ -446,8 +383,8 @@ export default function FinJarRegistration({ isDarkMode = false }) {
             </div>
 
             {/* Right side - Image */}
-            <div className="w-full flex justify-center">
-              <div className="w-full max-w-md lg:max-w-lg">
+            <div className="w-full flex justify-center lg:justify-end">
+              <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl">
                 <img 
                   src="/ChatGPT Image Jul 12, 2025, 08_58_13 AM.png" 
                   alt="FinJar App Interface" 

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import FinJarLanding from './Components/LandingPage';
 import FinJarRegistration from './Components/RegistrationPage';
 import FinJarAbout from './Components/About';
+import FinJarLogin from './Components/LoginPage';
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -36,6 +37,14 @@ function App() {
           path="/about" 
           element={
             <FinJarAbout 
+              isDarkMode={isDarkMode} 
+            />
+          } 
+        />
+        <Route 
+          path="/login" 
+          element={
+            <FinJarLogin 
               isDarkMode={isDarkMode} 
             />
           } 
