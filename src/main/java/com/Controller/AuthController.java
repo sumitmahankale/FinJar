@@ -19,7 +19,7 @@ import com.util.JwtUtil;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(origins = "http://localhost:5173") // your frontend
+@CrossOrigin(origins = "http://localhost:5173")
 public class AuthController {
 
     @Autowired

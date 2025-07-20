@@ -33,7 +33,7 @@ public class JarController {
     }
 
     // ✅ Get all jars for a specific user
-    @GetMapping("/user/{userId}")
+    @GetMapping
     public List<Jar> getMyJars(@RequestHeader("Authorization") String authHeader) {
         return jarService.getJarsByToken(authHeader);
     }
