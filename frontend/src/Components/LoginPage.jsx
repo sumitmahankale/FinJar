@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
 export default function FinJarLogin({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -9,6 +10,8 @@ export default function FinJarLogin({ isDarkMode = false }) {
     email: '',
     password: ''
   });
+
+  const navigate = useNavigate();
 
   // Custom SweetAlert-style alert function
   const showAlert = (type, title, text) => {
@@ -30,14 +33,14 @@ export default function FinJarLogin({ isDarkMode = false }) {
       [name]: value
     }));
   };
-  const navigate = useNavigate();
 
- const handleregistration = () => {
+  const handleregistration = () => {
     navigate('/registration');
     // Scroll to top immediately after navigation
     window.scrollTo(0, 0);
     console.log('Navigate to Registration');
   };
+
   const validateForm = () => {
     if (!formData.email.trim()) {
       showAlert('warning', 'Validation Error', 'Please enter your email address');
@@ -141,8 +144,10 @@ export default function FinJarLogin({ isDarkMode = false }) {
   };
 
   const handleDashboardRedirect = () => {
-    showAlert('info', 'Redirecting...', 'Taking you to your dashboard');
-    // Navigate to dashboard
+    // Navigate to dashboard using React Router
+    navigate('/dashboard');
+    // Scroll to top after navigation
+    window.scrollTo(0, 0);
     console.log('Navigate to dashboard');
   };
 
@@ -386,15 +391,14 @@ export default function FinJarLogin({ isDarkMode = false }) {
             {/* Right side - Image */}
             <div className="w-full flex justify-center lg:justify-end">
               <div className="w-full flex justify-center lg:justify-end">
-  <div className="w-full max-w-sm lg:max-w-md">
-    <img 
-      src="/ChatGPT Image Jul 17, 2025, 12_41_26 PM.png" 
-      alt="FinJar App Interface" 
-      className="w-full h-auto"
-    />
-  </div>
-</div>
-
+                <div className="w-full max-w-sm lg:max-w-md">
+                  <img 
+                    src="/ChatGPT Image Jul 17, 2025, 12_41_26 PM.png" 
+                    alt="FinJar App Interface" 
+                    className="w-full h-auto"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
