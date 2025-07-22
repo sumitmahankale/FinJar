@@ -268,8 +268,8 @@ const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, use
                 activeTab === item.id
                   ? 'bg-blue-600 text-white'
                   : isDarkMode
-                    ? 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
               }`}
               title={!isExpanded ? item.label : ''}
             >
@@ -290,8 +290,8 @@ const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, use
           onClick={onLogout}
           className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 text-left ${
             isDarkMode 
-              ? 'text-gray-300 hover:bg-gray-800 hover:text-red-400' 
-              : 'text-gray-700 hover:bg-gray-100 hover:text-red-600'
+              ? 'text-gray-400 hover:bg-gray-800 hover:text-red-400' 
+              : 'text-gray-700 hover:bg-red-50 hover:text-red-600'
           }`}
           title={!isExpanded ? 'Logout' : ''}
         >
@@ -372,7 +372,7 @@ export default function FinJarMinimalDashboard() {
   // Show loading spinner while fetching user data
   if (loading) {
     return (
-      <div className={`min-h-screen w-full transition-colors duration-300 ${
+      <div className={`h-screen transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
         <LoadingSpinner isDarkMode={isDarkMode} />
@@ -383,7 +383,7 @@ export default function FinJarMinimalDashboard() {
   // Show error message if user fetch failed and no fallback user
   if (error && !user) {
     return (
-      <div className={`min-h-screen w-full transition-colors duration-300 ${
+      <div className={`h-screen transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
         <ErrorMessage error={error} isDarkMode={isDarkMode} onRetry={refreshUser} />
@@ -445,7 +445,7 @@ export default function FinJarMinimalDashboard() {
   };
 
   return (
-    <div className={`min-h-screen w-full flex transition-colors duration-300 ${
+    <div className={`h-screen flex transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
       {/* Collapsible Sidebar */}
@@ -462,7 +462,7 @@ export default function FinJarMinimalDashboard() {
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${
         sidebarExpanded ? 'ml-64' : 'ml-16'
-      } min-h-screen`}>
+      } h-screen`}>
         {/* Header */}
         <Header
           isDarkMode={isDarkMode}
