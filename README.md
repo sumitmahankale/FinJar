@@ -51,16 +51,20 @@ jwt.secret=your_jwt_secret
 
 ### Folder Structure
 Backend
-src/
-  └── main/
-      └── java/
-          └── com/
-              └── finjar/
-                  ├── controller
-                  ├── service
-                  ├── model
-                  ├── repository
-                  └── config
+finjar-backend/
+└── src/
+└── main/
+├── java/
+│ └── com/
+│ └── finjar/
+│ ├── config/
+│ ├── controller/
+│ ├── model/
+│ ├── repository/
+│ └── service/
+└── resources/
+├── application.properties
+└── static/
 ### Frontend
 src/
   ├── components/
