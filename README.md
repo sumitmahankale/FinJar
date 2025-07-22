@@ -50,7 +50,7 @@ spring.datasource.password=your_db_password
 jwt.secret=your_jwt_secret
 
 ### Folder Structure
-Backend
+### **Backend**
 finjar-backend/
 └── src/
 └── main/
