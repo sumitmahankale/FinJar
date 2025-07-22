@@ -7,181 +7,314 @@ import {
   LogOut, 
   Moon, 
   Sun, 
-  Trash2,
-  Edit,
-  DollarSign,
-  Calendar,
   Eye,
-  X
+  Menu
 } from 'lucide-react';
 
-// Mock user data
-const mockUser = {
-  name: "John Doe",
-  email: "john@example.com",
-  avatar: "JD"
+// User authentication hook - updated to work with your current backend
+const useAuth = () => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Extract user info from JWT token
+  const parseJwtPayload = (token) => {
+    try {
+      const payload = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payload));
+      return decodedPayload;
+    } catch (error) {
+      console.error('Error parsing JWT:', error);
+      return null;
+    }
+  };
+
+  // Generate user avatar initials from email
+  const generateAvatar = (email) => {
+    if (!email) return 'U';
+    const name = email.split('@')[0];
+    const parts = name.split(/[._-]/);
+    return parts.map(part => part.charAt(0).toUpperCase()).slice(0, 2).join('');
+  };
+
+  // Generate display name from email
+  const generateDisplayName = (email) => {
+    if (!email) return 'User';
+    const localPart = email.split('@')[0];
+    return localPart
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Since your backend doesn't have /me endpoint yet, extract user info from JWT
+      const payload = parseJwtPayload(token);
+      
+      if (!payload) {
+        throw new Error('Invalid token format');
+      }
+
+      // Check if token is expired
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        localStorage.removeItem('authToken');
+        throw new Error('Token expired');
+      }
+
+      // Create user object from JWT payload
+      const email = payload.sub || payload.email || payload.username;
+      const formattedUser = {
+        id: payload.jti || email || 'user-id',
+        name: generateDisplayName(email),
+        email: email,
+        avatar: generateAvatar(email),
+        role: payload.role || 'USER'
+      };
+      
+      setUser(formattedUser);
+      
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+      setError(err.message);
+      
+      // If token is invalid, clear it
+      if (err.message.includes('token') || err.message.includes('Token')) {
+        localStorage.removeItem('authToken');
+      }
+      
+      // Fallback to demo user for development
+      setUser({
+        name: "Demo User",
+        email: "demo@example.com",
+        avatar: "DU",
+        id: "demo-user"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Clear local storage
+      localStorage.removeItem('authToken');
+      
+      // Clear user state
+      setUser(null);
+      
+      // Redirect to login page
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout failed:', err);
+      // Even if logout fails, clear local state
+      localStorage.removeItem('authToken');
+      setUser(null);
+      window.location.href = '/login';
+    }
+  };
+
+  const refreshUser = () => {
+    fetchCurrentUser();
+  };
+
+  return { user, loading, error, logout, refreshUser };
 };
 
-// Mock API functions
-const mockApi = {
-  getJars: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve([
-          {
-            id: 1,
-            name: "Emergency Fund",
-            targetAmount: 10000,
-            currentAmount: 3500,
-            createdDate: "2024-01-15",
-            description: "For unexpected expenses"
-          },
-          {
-            id: 2,
-            name: "Vacation",
-            targetAmount: 5000,
-            currentAmount: 1200,
-            createdDate: "2024-02-20",
-            description: "Trip to Europe"
-          },
-          {
-            id: 3,
-            name: "New Car",
-            targetAmount: 25000,
-            currentAmount: 8750,
-            createdDate: "2024-01-10",
-            description: "Saving for a new car"
-          }
-        ]);
-      }, 500);
-    });
-  },
+// Loading Component
+const LoadingSpinner = ({ isDarkMode }) => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="text-center">
+      <div className={`w-16 h-16 border-4 border-t-blue-600 border-r-transparent rounded-full animate-spin mb-4 ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}></div>
+      <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        Loading your dashboard...
+      </p>
+    </div>
+  </div>
+);
 
-  createJar: async (jarData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: Date.now(),
-          ...jarData,
-          currentAmount: 0,
-          createdDate: new Date().toISOString().split('T')[0]
-        });
-      }, 500);
-    });
-  },
+// Error Component
+const ErrorMessage = ({ error, isDarkMode, onRetry }) => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="text-center max-w-md px-4">
+      <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+        isDarkMode ? 'bg-red-900 text-red-400' : 'bg-red-100 text-red-600'
+      }`}>
+        <Settings className="w-8 h-8" />
+      </div>
+      <h3 className={`text-xl font-semibold mb-2 ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
+      }`}>
+        Authentication Error
+      </h3>
+      <p className={`text-sm mb-4 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        {error || 'Unable to authenticate user'}
+      </p>
+      <div className="space-y-2">
+        <button
+          onClick={onRetry}
+          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Try Again
+        </button>
+        <button
+          onClick={() => {
+            localStorage.removeItem('authToken');
+            window.location.href = '/login';
+          }}
+          className={`w-full px-4 py-2 rounded-lg transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          Back to Login
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
-  updateJar: async (id, jarData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve({ id, ...jarData }), 500);
-    });
-  },
-
-  deleteJar: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(true), 300);
-    });
-  },
-
-  addDeposit: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(true), 300);
-    });
-  }
-};
-
-// Sidebar Component
-const Sidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout }) => {
+const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, user, isExpanded, setIsExpanded }) => {
   const menuItems = [
     { id: 'jars', label: 'View My Jars', icon: Eye },
     { id: 'create', label: 'Create New Jar', icon: Plus },
-    { id: 'reports', label: 'Reports', icon: BarChart3, disabled: true },
-    { id: 'settings', label: 'Settings', icon: Settings, disabled: true }
+    { id: 'reports', label: 'Reports', icon: BarChart3 },
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   return (
-    <div className={`w-64 h-screen fixed left-0 top-0 transition-colors duration-300 border-r ${
-      isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
-    }`}>
-      {/* Logo */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+    <div 
+      className={`fixed left-0 top-0 h-full transition-all duration-300 ease-in-out border-r z-40 ${
+        isExpanded ? 'w-64' : 'w-16'
+      } ${
+        isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+      }`}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
+    >
+      {/* Logo Section */}
+      <div className={`p-4 border-b transition-all duration-300 ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <PiggyBank className="w-6 h-6 text-white" />
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <PiggyBank className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          <div className={`transition-all duration-300 overflow-hidden ${
+            isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+          }`}>
+            <h1 className={`text-lg font-bold whitespace-nowrap ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
               FinJar
             </h1>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`text-xs whitespace-nowrap ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
               Dashboard
             </p>
           </div>
         </div>
       </div>
 
-      {/* User Info */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+      {/* User Info Section */}
+      <div className={`p-4 border-b transition-all duration-300 ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-            {mockUser.avatar}
+          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium text-sm flex-shrink-0">
+            {user.avatar}
           </div>
-          <div>
-            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {mockUser.name}
+          <div className={`transition-all duration-300 overflow-hidden ${
+            isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+          }`}>
+            <p className={`font-medium text-sm whitespace-nowrap ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              {user.name}
             </p>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              {mockUser.email}
+            <p className={`text-xs whitespace-nowrap ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {user.email}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="p-4 space-y-2">
+      {/* Navigation Menu */}
+      <nav className="p-2 space-y-1 flex-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.id}
-              onClick={() => !item.disabled && setActiveTab(item.id)}
-              disabled={item.disabled}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 text-left ${
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 text-left group ${
                 activeTab === item.id
                   ? 'bg-blue-600 text-white'
-                  : item.disabled
-                    ? isDarkMode
-                      ? 'text-gray-600 cursor-not-allowed'
-                      : 'text-gray-400 cursor-not-allowed'
-                    : isDarkMode
-                      ? 'text-gray-300 hover:bg-gray-800'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  : isDarkMode
+                    ? 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
               }`}
+              title={!isExpanded ? item.label : ''}
             >
-              <Icon size={20} />
-              <span>{item.label}</span>
-              {item.disabled && (
-                <span className="ml-auto text-xs bg-gray-500 text-white px-2 py-1 rounded">
-                  Soon
-                </span>
-              )}
+              <Icon size={18} className="flex-shrink-0" />
+              <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${
+                isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+              }`}>
+                {item.label}
+              </span>
             </button>
           );
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="absolute bottom-6 left-4 right-4">
+      {/* Logout Button */}
+      <div className="p-2">
         <button
           onClick={onLogout}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-all duration-200 text-left ${
             isDarkMode 
               ? 'text-gray-300 hover:bg-gray-800 hover:text-red-400' 
               : 'text-gray-700 hover:bg-gray-100 hover:text-red-600'
           }`}
+          title={!isExpanded ? 'Logout' : ''}
         >
-          <LogOut size={20} />
-          <span>Logout</span>
+          <LogOut size={18} className="flex-shrink-0" />
+          <span className={`transition-all duration-300 overflow-hidden whitespace-nowrap ${
+            isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+          }`}>
+            Logout
+          </span>
         </button>
+      </div>
+
+      {/* Expand/Collapse Indicator */}
+      <div className={`absolute top-1/2 -right-3 transform -translate-y-1/2 transition-all duration-300 ${
+        isExpanded ? 'rotate-180' : 'rotate-0'
+      }`}>
+        <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
+          isDarkMode 
+            ? 'bg-gray-900 border-gray-700 text-gray-400' 
+            : 'bg-white border-gray-200 text-gray-600'
+        }`}>
+          <Menu size={12} />
+        </div>
       </div>
     </div>
   );
@@ -190,10 +323,10 @@ const Sidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout }) => {
 // Header Component
 const Header = ({ isDarkMode, toggleDarkMode, title }) => {
   return (
-    <header className={`h-16 border-b transition-colors duration-300 ${
+    <header className={`h-16 border-b flex-shrink-0 ${
       isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
     }`}>
-      <div className="flex items-center justify-between h-full px-6">
+      <div className="flex items-center justify-between h-full px-6 w-full">
         <h2 className={`text-xl font-semibold ${
           isDarkMode ? 'text-white' : 'text-gray-900'
         }`}>
@@ -215,504 +348,121 @@ const Header = ({ isDarkMode, toggleDarkMode, title }) => {
   );
 };
 
-// Jar Card Component
-const JarCard = ({ jar, isDarkMode, onEdit, onDelete, onAddDeposit }) => {
-  const progress = (jar.currentAmount / jar.targetAmount) * 100;
-  
-  return (
-    <div className={`p-6 rounded-xl border-2 transition-all duration-300 hover:shadow-lg ${
-      isDarkMode 
-        ? 'bg-gray-800 border-gray-700 hover:border-gray-600' 
-        : 'bg-white border-gray-200 hover:border-gray-300'
-    }`}>
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className={`text-xl font-semibold mb-1 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            {jar.name}
-          </h3>
-          <p className={`text-sm ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            {jar.description}
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => onEdit(jar)}
-            className={`p-2 rounded-lg transition-colors ${
-              isDarkMode 
-                ? 'hover:bg-gray-700 text-gray-400 hover:text-blue-400' 
-                : 'hover:bg-gray-100 text-gray-600 hover:text-blue-600'
-            }`}
-          >
-            <Edit size={16} />
-          </button>
-          <button
-            onClick={() => onDelete(jar.id)}
-            className={`p-2 rounded-lg transition-colors ${
-              isDarkMode 
-                ? 'hover:bg-gray-700 text-gray-400 hover:text-red-400' 
-                : 'hover:bg-gray-100 text-gray-600 hover:text-red-600'
-            }`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className={`text-sm font-medium ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Progress
-          </span>
-          <span className={`text-sm ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            {progress.toFixed(1)}%
-          </span>
-        </div>
-        <div className={`w-full rounded-full h-3 ${
-          isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
-        }`}>
-          <div 
-            className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Amount Info */}
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <p className={`text-2xl font-bold ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            ${jar.currentAmount.toLocaleString()}
-          </p>
-          <p className={`text-sm ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            of ${jar.targetAmount.toLocaleString()}
-          </p>
-        </div>
-        <button
-          onClick={() => onAddDeposit(jar)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={16} />
-          <span>Add Money</span>
-        </button>
-      </div>
-
-      {/* Created Date */}
-      <div className="flex items-center space-x-2 text-xs text-gray-500">
-        <Calendar size={12} />
-        <span>Created {jar.createdDate}</span>
-      </div>
-    </div>
-  );
-};
-
-// Create Jar Form
-const CreateJarForm = ({ isDarkMode, onSubmit, onCancel, editingJar = null }) => {
-  const [formData, setFormData] = useState({
-    name: editingJar?.name || '',
-    targetAmount: editingJar?.targetAmount || '',
-    description: editingJar?.description || ''
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.name && formData.targetAmount) {
-      onSubmit({
-        ...formData,
-        targetAmount: parseFloat(formData.targetAmount)
-      });
-    }
-  };
-
-  return (
-    <div className={`max-w-2xl mx-auto p-6 rounded-xl border ${
-      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-    }`}>
-      <h3 className={`text-2xl font-bold mb-6 ${
-        isDarkMode ? 'text-white' : 'text-gray-900'
-      }`}>
-        {editingJar ? 'Edit Jar' : 'Create New Jar'}
-      </h3>
-
-      <form className="space-y-6" onSubmit={handleSubmit}>
-        <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Jar Name *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-              isDarkMode 
-                ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
-                : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-            placeholder="e.g., Emergency Fund, Vacation, New Car"
-          />
-        </div>
-
-        <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Target Amount *
-          </label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="number"
-              required
-              min="1"
-              step="0.01"
-              value={formData.targetAmount}
-              onChange={(e) => setFormData({...formData, targetAmount: e.target.value})}
-              className={`w-full pl-12 pr-4 py-3 rounded-lg border transition-colors ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-              placeholder="10000"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className={`block text-sm font-medium mb-2 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Description
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({...formData, description: e.target.value})}
-            rows={3}
-            className={`w-full px-4 py-3 rounded-lg border transition-colors resize-none ${
-              isDarkMode 
-                ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
-                : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-            } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-            placeholder="What are you saving for?"
-          />
-        </div>
-
-        <div className="flex space-x-4">
-          <button
-            type="submit"
-            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            {editingJar ? 'Update Jar' : 'Create Jar'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`flex-1 px-6 py-3 rounded-lg border transition-colors font-medium ${
-              isDarkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-};
-
-// Add Deposit Modal
-const AddDepositModal = ({ jar, isDarkMode, onAdd, onClose }) => {
-  const [amount, setAmount] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (amount && parseFloat(amount) > 0) {
-      onAdd(jar.id, parseFloat(amount));
-      setAmount('');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className={`w-full max-w-md rounded-xl p-6 ${
-        isDarkMode ? 'bg-gray-800' : 'bg-white'
-      }`}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className={`text-xl font-bold ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Add Money to {jar.name}
-          </h3>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg transition-colors ${
-              isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-            }`}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label className={`block text-sm font-medium mb-2 ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Amount
-            </label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="number"
-                required
-                min="0.01"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={`w-full pl-12 pr-4 py-3 rounded-lg border transition-colors ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
-                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
-                placeholder="0.00"
-                autoFocus
-              />
-            </div>
-          </div>
-
-          <div className="flex space-x-3">
-            <button
-              type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Add Money
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className={`flex-1 px-6 py-3 rounded-lg border transition-colors font-medium ${
-                isDarkMode 
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 // Main Dashboard Component
-export default function FinJarDashboard() {
+export default function FinJarMinimalDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState('jars');
-  const [jars, setJars] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [editingJar, setEditingJar] = useState(null);
-  const [depositModalJar, setDepositModalJar] = useState(null);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  
+  // Use the authentication hook
+  const { user, loading, error, logout, refreshUser } = useAuth();
 
-  // Load jars on component mount
+  // Fetch user data on component mount
   useEffect(() => {
-    loadJars();
+    refreshUser();
   }, []);
 
-  const loadJars = async () => {
-    setLoading(true);
-    try {
-      const data = await mockApi.getJars();
-      setJars(data);
-    } catch (error) {
-      console.error('Failed to load jars:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleCreateJar = async (jarData) => {
-    setLoading(true);
-    try {
-      const newJar = await mockApi.createJar(jarData);
-      setJars([...jars, newJar]);
-      setActiveTab('jars');
-    } catch (error) {
-      console.error('Failed to create jar:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleUpdateJar = async (jarData) => {
-    setLoading(true);
-    try {
-      const updatedJar = await mockApi.updateJar(editingJar.id, jarData);
-      setJars(jars.map(jar => jar.id === editingJar.id ? { ...jar, ...updatedJar } : jar));
-      setEditingJar(null);
-      setActiveTab('jars');
-    } catch (error) {
-      console.error('Failed to update jar:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleDeleteJar = async (jarId) => {
-    if (window.confirm('Are you sure you want to delete this jar?')) {
-      setLoading(true);
-      try {
-        await mockApi.deleteJar(jarId);
-        setJars(jars.filter(jar => jar.id !== jarId));
-      } catch (error) {
-        console.error('Failed to delete jar:', error);
-      }
-      setLoading(false);
+  // Handle logout
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
     }
   };
 
-  const handleAddDeposit = async (jarId, amount) => {
-    setLoading(true);
-    try {
-      await mockApi.addDeposit(jarId, amount);
-      setJars(jars.map(jar => 
-        jar.id === jarId 
-          ? { ...jar, currentAmount: jar.currentAmount + amount }
-          : jar
-      ));
-      setDepositModalJar(null);
-    } catch (error) {
-      console.error('Failed to add deposit:', error);
-    }
-    setLoading(false);
-  };
+  // Show loading spinner while fetching user data
+  if (loading) {
+    return (
+      <div className={`min-h-screen w-full transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        <LoadingSpinner isDarkMode={isDarkMode} />
+      </div>
+    );
+  }
+
+  // Show error message if user fetch failed and no fallback user
+  if (error && !user) {
+    return (
+      <div className={`min-h-screen w-full transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        <ErrorMessage error={error} isDarkMode={isDarkMode} onRetry={refreshUser} />
+      </div>
+    );
+  }
 
   const getPageTitle = () => {
     switch (activeTab) {
-      case 'jars': return 'My Jars';
-      case 'create': return editingJar ? 'Edit Jar' : 'Create New Jar';
+      case 'jars': return 'View My Jars';
+      case 'create': return 'Create New Jar';
       case 'reports': return 'Reports';
       case 'settings': return 'Settings';
       default: return 'Dashboard';
     }
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-64">
-          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${
-            isDarkMode ? 'border-blue-400' : 'border-blue-600'
-          }`}></div>
-        </div>
-      );
-    }
-
-    switch (activeTab) {
-      case 'jars':
-        return (
-          <div>
-            {jars.length === 0 ? (
-              <div className="text-center py-12">
-                <PiggyBank className={`mx-auto h-16 w-16 mb-4 ${
-                  isDarkMode ? 'text-gray-600' : 'text-gray-400'
-                }`} />
-                <h3 className={`text-xl font-semibold mb-2 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  No jars yet
-                </h3>
-                <p className={`mb-6 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>
-                  Create your first savings jar to get started
-                </p>
-                <button
-                  onClick={() => setActiveTab('create')}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Create Your First Jar
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {jars.map((jar) => (
-                  <JarCard
-                    key={jar.id}
-                    jar={jar}
-                    isDarkMode={isDarkMode}
-                    onEdit={setEditingJar}
-                    onDelete={handleDeleteJar}
-                    onAddDeposit={setDepositModalJar}
-                  />
-                ))}
-              </div>
-            )}
+  const renderEmptyContent = () => {
+    return (
+      <div className="flex items-center justify-center h-full w-full">
+        <div className="text-center py-12 max-w-md mx-auto px-4">
+          <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${
+            isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+          }`}>
+            <PiggyBank className={`w-12 h-12 ${
+              isDarkMode ? 'text-gray-600' : 'text-gray-400'
+            }`} />
           </div>
-        );
-
-      case 'create':
-        return (
-          <CreateJarForm
-            isDarkMode={isDarkMode}
-            editingJar={editingJar}
-            onSubmit={editingJar ? handleUpdateJar : handleCreateJar}
-            onCancel={() => {
-              setEditingJar(null);
-              setActiveTab('jars');
-            }}
-          />
-        );
-
-      default:
-        return (
-          <div className="text-center py-12">
-            <h3 className={`text-xl font-semibold mb-2 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
+          <h3 className={`text-2xl font-semibold mb-2 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Welcome, {user?.name?.split(' ')[0] || 'User'}!
+          </h3>
+          <h4 className={`text-xl font-medium mb-2 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+          }`}>
+            {getPageTitle()}
+          </h4>
+          <p className={`text-lg mb-4 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Ready to work with your current Spring Boot backend
+          </p>
+          <p className={`text-sm ${
+            isDarkMode ? 'text-gray-500' : 'text-gray-500'
+          }`}>
+            Hover over the sidebar to expand navigation
+          </p>
+          {error && (
+            <p className={`text-xs mt-2 px-3 py-1 rounded-full ${
+              isDarkMode ? 'bg-yellow-900 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
             }`}>
-              Coming Soon
-            </h3>
-            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              This feature is under development
+              Using JWT token data (Backend: /auth endpoint detected)
             </p>
-          </div>
-        );
-    }
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
+    <div className={`min-h-screen w-full flex transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
-      {/* Sidebar */}
-      <Sidebar
+      {/* Collapsible Sidebar */}
+      <CollapsibleSidebar
         isDarkMode={isDarkMode}
         activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          setEditingJar(null);
-        }}
-        onLogout={() => {
-          if (window.confirm('Are you sure you want to logout?')) {
-            console.log('Logout clicked');
-          }
-        }}
+        setActiveTab={setActiveTab}
+        user={user}
+        isExpanded={sidebarExpanded}
+        setIsExpanded={setSidebarExpanded}
+        onLogout={handleLogout}
       />
 
-      {/* Main Content */}
-      <div className="ml-64">
+      {/* Main Content Area */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${
+        sidebarExpanded ? 'ml-64' : 'ml-16'
+      } min-h-screen`}>
         {/* Header */}
         <Header
           isDarkMode={isDarkMode}
@@ -721,20 +471,10 @@ export default function FinJarDashboard() {
         />
 
         {/* Page Content */}
-        <main className="p-6">
-          {renderContent()}
+        <main className="flex-1 overflow-auto">
+          {renderEmptyContent()}
         </main>
       </div>
-
-      {/* Add Deposit Modal */}
-      {depositModalJar && (
-        <AddDepositModal
-          jar={depositModalJar}
-          isDarkMode={isDarkMode}
-          onAdd={handleAddDeposit}
-          onClose={() => setDepositModalJar(null)}
-        />
-      )}
     </div>
   );
 }
