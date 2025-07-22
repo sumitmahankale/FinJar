@@ -23,7 +23,7 @@
 
 ## **Tech Stack**
 
-### 🖥️ **Backend**
+###  **Backend**
 - Java 17  
 - Spring Boot  
 - Spring Security (JWT)  
@@ -31,7 +31,7 @@
 - MySQL  
 - Maven  
 
-### 💻 **Frontend**
+###  **Frontend**
 - React.js  
 - Tailwind CSS  
 - React Router  
@@ -40,7 +40,7 @@
 
 ---
 
-## 🚀 **Getting Started**
+##  **Getting Started**
 
 ### 🔧 Backend Setup
 
@@ -84,9 +84,9 @@
 
 ---
 
-## 📁 **Project Folder Structure**
+##  **Project Folder Structure**
 
-### 🗂️ Backend
+###  Backend
 
 ```
 finjar-backend/
@@ -105,7 +105,7 @@ finjar-backend/
             └── static/
 ```
 
-### 🗂️ Frontend
+###  Frontend
 
 ```
 finjar-frontend/
@@ -118,13 +118,13 @@ finjar-frontend/
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome!  
 Feel free to fork this repository and submit a pull request with improvements, new features, or bug fixes.
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
