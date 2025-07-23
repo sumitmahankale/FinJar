@@ -320,10 +320,10 @@ const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, use
   );
 };
 
-// Header Component
+// Header Component - Updated to match navbar height from other pages
 const Header = ({ isDarkMode, toggleDarkMode, title }) => {
   return (
-    <header className={`h-16 border-b flex-shrink-0 ${
+    <header className={`h-20 border-b flex-shrink-0 ${
       isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
     }`}>
       <div className="flex items-center justify-between h-full px-6 w-full">
@@ -335,7 +335,7 @@ const Header = ({ isDarkMode, toggleDarkMode, title }) => {
         
         <button
           onClick={toggleDarkMode}
-          className={`p-2 rounded-lg transition-colors duration-300 ${
+          className={`p-2 rounded-full transition-all duration-300 ${
             isDarkMode 
               ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' 
               : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -350,7 +350,12 @@ const Header = ({ isDarkMode, toggleDarkMode, title }) => {
 
 // Main Dashboard Component
 export default function FinJarMinimalDashboard() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Initialize dark mode from localStorage or default to false
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('isDarkMode');
+    return savedTheme === 'true';
+  });
+  
   const [activeTab, setActiveTab] = useState('jars');
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   
@@ -361,6 +366,13 @@ export default function FinJarMinimalDashboard() {
   useEffect(() => {
     refreshUser();
   }, []);
+
+  // Toggle dark mode and save to localStorage
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    localStorage.setItem('isDarkMode', newDarkMode.toString());
+  };
 
   // Handle logout
   const handleLogout = () => {
@@ -466,7 +478,7 @@ export default function FinJarMinimalDashboard() {
         {/* Header */}
         <Header
           isDarkMode={isDarkMode}
-          toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          toggleDarkMode={toggleDarkMode}
           title={getPageTitle()}
         />
 
