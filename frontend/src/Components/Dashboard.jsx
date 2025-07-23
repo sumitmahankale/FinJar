@@ -8,7 +8,9 @@ import {
   Moon, 
   Sun, 
   Eye,
-  Menu
+  Menu,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 
 // User authentication hook - updated to work with your current backend
@@ -188,6 +190,98 @@ const ErrorMessage = ({ error, isDarkMode, onRetry }) => (
   </div>
 );
 
+// Custom Logout Confirmation Modal
+const LogoutConfirmModal = ({ isOpen, onConfirm, onCancel, isDarkMode, isLoading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50"
+        onClick={!isLoading ? onCancel : undefined}
+      />
+      
+      {/* Modal Box */}
+      <div className={`relative w-full max-w-md mx-auto rounded-2xl shadow-2xl transform transition-all duration-300 scale-100 ${
+        isDarkMode 
+          ? 'bg-gray-800 border border-gray-700' 
+          : 'bg-white border border-gray-200'
+      }`}>
+        {/* Close Button */}
+        {!isLoading && (
+          <button
+            onClick={onCancel}
+            className={`absolute top-4 right-4 p-1 rounded-full transition-colors duration-200 ${
+              isDarkMode 
+                ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Modal Content */}
+        <div className="p-6 text-center">
+          {/* Icon */}
+          <div className="flex justify-center mb-4">
+            <div className="p-3 rounded-full bg-orange-100">
+              <AlertTriangle className="w-6 h-6 text-orange-500" />
+            </div>
+          </div>
+
+          {/* Title */}
+          <h3 className={`text-xl font-semibold mb-2 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Confirm Logout
+          </h3>
+
+          {/* Message */}
+          <p className={`text-sm leading-relaxed mb-6 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>
+            Are you sure you want to logout? You will need to sign in again to access your account.
+          </p>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-3">
+            {/* Cancel Button */}
+            <button
+              onClick={onCancel}
+              disabled={isLoading}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                isDarkMode 
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Cancel
+            </button>
+
+            {/* Confirm Button */}
+            <button
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="flex-1 py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 active:scale-95 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Logging out...</span>
+                </>
+              ) : (
+                <span>Logout</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, user, isExpanded, setIsExpanded }) => {
   const menuItems = [
     { id: 'jars', label: 'View My Jars', icon: Eye },
@@ -358,6 +452,8 @@ export default function FinJarMinimalDashboard() {
   
   const [activeTab, setActiveTab] = useState('jars');
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Use the authentication hook
   const { user, loading, error, logout, refreshUser } = useAuth();
@@ -374,11 +470,27 @@ export default function FinJarMinimalDashboard() {
     localStorage.setItem('isDarkMode', newDarkMode.toString());
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
+  // Handle logout button click - shows confirmation modal
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  // Handle logout confirmation
+  const handleLogoutConfirm = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
     }
+  };
+
+  // Handle logout cancellation
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
   };
 
   // Show loading spinner while fetching user data
@@ -460,6 +572,15 @@ export default function FinJarMinimalDashboard() {
     <div className={`h-screen flex transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutModal}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+        isDarkMode={isDarkMode}
+        isLoading={isLoggingOut}
+      />
+
       {/* Collapsible Sidebar */}
       <CollapsibleSidebar
         isDarkMode={isDarkMode}
@@ -468,7 +589,7 @@ export default function FinJarMinimalDashboard() {
         user={user}
         isExpanded={sidebarExpanded}
         setIsExpanded={setSidebarExpanded}
-        onLogout={handleLogout}
+        onLogout={handleLogoutClick}
       />
 
       {/* Main Content Area */}
