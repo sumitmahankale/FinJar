@@ -5,6 +5,7 @@ import FinJarRegistration from './Components/RegistrationPage';
 import FinJarAbout from './Components/About';
 import FinJarLogin from './Components/LoginPage';
 import FinJarDashboard from './Components/Dashboard';
+import FinJarDetails from './Components/ViewJars';
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -54,6 +55,14 @@ function App() {
           path="/dashboard" 
           element={
             <FinJarDashboard 
+              isDarkMode={isDarkMode} 
+            />
+          } 
+        />
+         <Route 
+          path="/viewjar" 
+          element={
+            <FinJarDetails 
               isDarkMode={isDarkMode} 
             />
           } 
