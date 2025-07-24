@@ -20,7 +20,7 @@ import com.service.JarService;
 
 @RestController
 @RequestMapping("/api/jars")
-@CrossOrigin
+@CrossOrigin(origins = "http://localhost:5173")
 public class JarController {
 
     @Autowired	

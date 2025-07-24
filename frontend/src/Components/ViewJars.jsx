@@ -12,41 +12,69 @@ import {
   CheckCircle,
   Clock,
   X,
-  Save
+  Save,
+  RefreshCw
 } from 'lucide-react';
+
+// Mock authentication state - in real app this would come from context/redux
+const mockAuthState = {
+  isAuthenticated: true,
+  token: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInN1YiI6InVzZXIxIiwiaWF0IjoxNjk5OTk5OTk5fQ.mock_signature',
+  userId: 1
+};
+
+// Configuration for API base URL - change this to match your Spring Boot server
+const API_BASE_URL = 'http://localhost:8080'; // Change this to your server URL
 
 // API Service for Jar operations
 const jarAPI = {
   // Get all jars for current user
-  getMyJars: async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('No authentication token');
+  getMyJars: async (authToken) => {
+    if (!authToken) throw new Error('No authentication token');
 
     try {
-      const response = await fetch('/api/jars', {
+      const url = `${API_BASE_URL}/api/jars`;
+      console.log('Fetching jars from:', url);
+      console.log('Auth token:', authToken);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': authToken,
           'Content-Type': 'application/json',
         },
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        // Check if response is HTML (404 page, etc.)
         const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
         if (contentType && contentType.includes('text/html')) {
-          throw new Error(`API endpoint not found (${response.status}). Make sure your Spring Boot server is running on the correct URL.`);
+          const htmlText = await response.text();
+          console.log('HTML Response:', htmlText.substring(0, 200) + '...');
+          throw new Error(`API endpoint not found (${response.status}). Make sure your Spring Boot server is running at ${API_BASE_URL} and the endpoint /api/jars exists.`);
         }
         throw new Error(`Failed to fetch jars: ${response.status} ${response.statusText}`);
       }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned non-JSON response. Check if the API endpoint is correct.');
+        const responseText = await response.text();
+        console.log('Non-JSON Response:', responseText);
+        throw new Error(`Server returned non-JSON response (${contentType}). Response: ${responseText.substring(0, 100)}...`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('Jars data received:', data);
+      return data;
     } catch (error) {
+      console.error('API Error:', error);
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running and CORS is enabled.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. This usually means the API endpoint is not found or the server is not running.');
       }
@@ -55,15 +83,17 @@ const jarAPI = {
   },
 
   // Create new jar
-  createJar: async (jarData) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('No authentication token');
+  createJar: async (jarData, authToken) => {
+    if (!authToken) throw new Error('No authentication token');
 
     try {
-      const response = await fetch('/api/jars', {
+      const url = `${API_BASE_URL}/api/jars`;
+      console.log('Creating jar at:', url, jarData);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': authToken,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(jarData),
@@ -79,6 +109,9 @@ const jarAPI = {
 
       return await response.json();
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running and CORS is enabled.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. Check if your Spring Boot server is running.');
       }
@@ -87,15 +120,13 @@ const jarAPI = {
   },
 
   // Update jar
-  updateJar: async (jarId, jarData) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('No authentication token');
-
+  updateJar: async (jarId, jarData, authToken) => {
     try {
-      const response = await fetch(`/api/jars/${jarId}`, {
+      const url = `${API_BASE_URL}/api/jars/${jarId}`;
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': authToken,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(jarData),
@@ -111,6 +142,9 @@ const jarAPI = {
 
       return await response.json();
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. Check if your Spring Boot server is running.');
       }
@@ -119,15 +153,13 @@ const jarAPI = {
   },
 
   // Delete jar
-  deleteJar: async (jarId) => {
-    const token = localStorage.getItem('authToken');
-    if (!token) throw new Error('No authentication token');
-
+  deleteJar: async (jarId, authToken) => {
     try {
-      const response = await fetch(`/api/jars/${jarId}`, {
+      const url = `${API_BASE_URL}/api/jars/${jarId}`;
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': authToken,
           'Content-Type': 'application/json',
         },
       });
@@ -142,6 +174,9 @@ const jarAPI = {
 
       return await response.text();
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. Check if your Spring Boot server is running.');
       }
@@ -155,7 +190,10 @@ const depositAPI = {
   // Add deposit to jar
   addDeposit: async (jarId, userId, depositData) => {
     try {
-      const response = await fetch(`/api/deposits/jar/${jarId}/user/${userId}`, {
+      const url = `${API_BASE_URL}/api/deposits/jar/${jarId}/user/${userId}`;
+      console.log('Adding deposit to:', url, depositData);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -173,6 +211,9 @@ const depositAPI = {
 
       return await response.json();
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running and CORS is enabled.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. Check if your Spring Boot server is running.');
       }
@@ -183,7 +224,8 @@ const depositAPI = {
   // Get deposits for jar
   getDepositsForJar: async (jarId) => {
     try {
-      const response = await fetch(`/api/deposits/jar/${jarId}`, {
+      const url = `${API_BASE_URL}/api/deposits/jar/${jarId}`;
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -200,6 +242,9 @@ const depositAPI = {
 
       return await response.json();
     } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Make sure your Spring Boot server is running.`);
+      }
       if (error.name === 'SyntaxError' && error.message.includes('Unexpected token')) {
         throw new Error('Server returned HTML instead of JSON. Check if your Spring Boot server is running.');
       }
@@ -208,20 +253,30 @@ const depositAPI = {
   }
 };
 
-// Utility function to get user ID from JWT token
-const getUserIdFromToken = () => {
-  try {
-    const token = localStorage.getItem('authToken');
-    if (!token) return null;
-    
-    const payload = token.split('.')[1];
-    const decodedPayload = JSON.parse(atob(payload));
-    return decodedPayload.userId || decodedPayload.sub || decodedPayload.jti || 'demo-user';
-  } catch (error) {
-    console.error('Error parsing JWT:', error);
-    return 'demo-user';
+// Demo data for testing when API is not available
+const demoJars = [
+  {
+    id: 1,
+    jarName: "Emergency Fund",
+    currentAmount: 2500,
+    targetAmount: 10000,
+    createdAt: "2024-01-15T10:00:00Z"
+  },
+  {
+    id: 2,
+    jarName: "Vacation Savings",
+    currentAmount: 800,
+    targetAmount: 3000,
+    createdAt: "2024-02-01T10:00:00Z"
+  },
+  {
+    id: 3,
+    jarName: "New Car",
+    currentAmount: 15000,
+    targetAmount: 25000,
+    createdAt: "2024-01-01T10:00:00Z"
   }
-};
+];
 
 // Loading Component
 const LoadingSpinner = ({ isDarkMode, message = "Loading..." }) => (
@@ -238,7 +293,7 @@ const LoadingSpinner = ({ isDarkMode, message = "Loading..." }) => (
 );
 
 // Error Message Component
-const ErrorMessage = ({ message, isDarkMode, onRetry }) => (
+const ErrorMessage = ({ message, isDarkMode, onRetry, showDemo }) => (
   <div className="flex items-center justify-center py-12">
     <div className="text-center max-w-md">
       <div className={`w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center ${
@@ -249,14 +304,29 @@ const ErrorMessage = ({ message, isDarkMode, onRetry }) => (
       <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
         {message}
       </p>
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Try Again
-        </button>
-      )}
+      <div className="flex flex-col space-y-2">
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Try Again</span>
+          </button>
+        )}
+        {showDemo && (
+          <button
+            onClick={showDemo}
+            className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+              isDarkMode 
+                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            }`}
+          >
+            Load Demo Data
+          </button>
+        )}
+      </div>
     </div>
   </div>
 );
@@ -290,6 +360,154 @@ const ProgressBar = ({ current, target, isDarkMode }) => {
   );
 };
 
+// Create New Jar Modal
+const CreateJarModal = ({ isOpen, onClose, onJarCreated, isDarkMode }) => {
+  const [jarName, setJarName] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setJarName('');
+      setTargetAmount('');
+      setError('');
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!jarName.trim() || !targetAmount || parseFloat(targetAmount) <= 0) {
+      setError('Please enter a valid jar name and target amount');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const jarData = {
+        jarName: jarName.trim(),
+        targetAmount: parseFloat(targetAmount),
+        currentAmount: 0
+      };
+
+      await jarAPI.createJar(jarData, mockAuthState.token);
+      onJarCreated();
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to create jar');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      
+      <div className={`relative w-full max-w-md rounded-2xl shadow-2xl ${
+        isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+      }`}>
+        <button
+          onClick={onClose}
+          className={`absolute top-4 right-4 p-1 rounded-full transition-colors ${
+            isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-6">
+          <h3 className={`text-xl font-semibold mb-4 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Create New Savings Jar
+          </h3>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Jar Name
+              </label>
+              <input
+                type="text"
+                value={jarName}
+                onChange={(e) => setJarName(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+                placeholder="e.g., Emergency Fund, Vacation Savings"
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Target Amount ($)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={targetAmount}
+                onChange={(e) => setTargetAmount(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+                placeholder="0.00"
+              />
+            </div>
+
+            {error && (
+              <p className="text-red-500 text-sm">{error}</p>
+            )}
+
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isLoading}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  isDarkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !jarName.trim() || !targetAmount}
+                className="flex-1 py-2 px-4 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <span>Create Jar</span>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Update Amount Modal
 const UpdateAmountModal = ({ isOpen, jar, onClose, onUpdate, isDarkMode }) => {
   const [amount, setAmount] = useState('');
@@ -317,13 +535,12 @@ const UpdateAmountModal = ({ isOpen, jar, onClose, onUpdate, isDarkMode }) => {
     setError('');
 
     try {
-      const userId = getUserIdFromToken();
       const depositData = {
         amount: parseFloat(amount),
         description: description || 'Deposit added'
       };
 
-      await depositAPI.addDeposit(jar.id, userId, depositData);
+      await depositAPI.addDeposit(jar.id, mockAuthState.userId, depositData);
       onUpdate();
       onClose();
     } catch (err) {
@@ -355,7 +572,7 @@ const UpdateAmountModal = ({ isOpen, jar, onClose, onUpdate, isDarkMode }) => {
           <h3 className={`text-xl font-semibold mb-4 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Add Money to {jar.jarName}
+            Add Money to {jar?.jarName}
           </h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -543,7 +760,7 @@ const JarCard = ({ jar, isDarkMode, onUpdate, onDelete }) => {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await jarAPI.deleteJar(jar.id);
+      await jarAPI.deleteJar(jar.id, mockAuthState.token);
       onDelete(jar.id);
       setShowDeleteModal(false);
     } catch (error) {
@@ -703,20 +920,24 @@ const JarCard = ({ jar, isDarkMode, onUpdate, onDelete }) => {
 
 // Main View My Jars Component
 export default function ViewMyJars() {
-  const [isDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem('isDarkMode');
-    return savedTheme === 'true';
-  });
-
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [jars, setJars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
 
   const fetchJars = async () => {
     try {
       setLoading(true);
       setError('');
-      const data = await jarAPI.getMyJars();
+      setIsDemo(false);
+      
+      if (!mockAuthState.isAuthenticated) {
+        throw new Error('Not authenticated. Please log in.');
+      }
+
+      const data = await jarAPI.getMyJars(mockAuthState.token);
       setJars(data || []);
     } catch (err) {
       setError(err.message || 'Failed to fetch jars');
@@ -726,12 +947,27 @@ export default function ViewMyJars() {
     }
   };
 
+  const loadDemoData = () => {
+    setJars(demoJars);
+    setIsDemo(true);
+    setError('');
+    setLoading(false);
+  };
+
   useEffect(() => {
     fetchJars();
   }, []);
 
   const handleJarUpdate = () => {
-    fetchJars(); // Refresh jars after update
+    if (!isDemo) {
+      fetchJars(); // Refresh jars after update
+    }
+  };
+
+  const handleJarCreated = () => {
+    if (!isDemo) {
+      fetchJars(); // Refresh jars after creation
+    }
   };
 
   const handleJarDelete = (jarId) => {
@@ -750,7 +986,7 @@ export default function ViewMyJars() {
     );
   }
 
-  if (error) {
+  if (error && !isDemo) {
     return (
       <div className={`min-h-screen transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
@@ -760,6 +996,7 @@ export default function ViewMyJars() {
             message={error} 
             isDarkMode={isDarkMode} 
             onRetry={fetchJars}
+            showDemo={loadDemoData}
           />
         </div>
       </div>
@@ -772,17 +1009,75 @@ export default function ViewMyJars() {
     }`}>
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className={`text-3xl font-bold mb-2 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className={`text-3xl font-bold mb-2 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              My Savings Jars
+              {isDemo && (
+                <span className="ml-2 text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                  Demo Mode
+                </span>
+              )}
+            </h1>
+            <p className={`text-lg ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Track your progress and manage your savings goals
+            </p>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
+                  : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+              }`}
+              title="Toggle theme"
+            >
+              {isDarkMode ? '🌞' : '🌙'}
+            </button>
+            
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Jar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* API Configuration */}
+        <div className={`mb-6 p-4 rounded-lg border ${
+          isDarkMode 
+            ? 'bg-gray-800 border-gray-700' 
+            : 'bg-blue-50 border-blue-200'
+        }`}>
+          <h4 className={`font-medium mb-2 ${
+            isDarkMode ? 'text-white' : 'text-blue-900'
           }`}>
-            My Savings Jars
-          </h1>
-          <p className={`text-lg ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            API Configuration
+          </h4>
+          <div className={`text-sm space-y-1 ${
+            isDarkMode ? 'text-gray-300' : 'text-blue-800'
           }`}>
-            Track your progress and manage your savings goals
-          </p>
+            <div><strong>Server URL:</strong> {API_BASE_URL}</div>
+            <div><strong>Auth Token:</strong> {mockAuthState.token.substring(0, 50)}...</div>
+            <div><strong>User ID:</strong> {mockAuthState.userId}</div>
+          </div>
+          <div className="mt-3 text-xs text-gray-500">
+            💡 <strong>Troubleshooting:</strong>
+            <ul className="mt-1 list-disc list-inside space-y-1">
+              <li>Make sure your Spring Boot server is running on {API_BASE_URL}</li>
+              <li>Verify CORS is enabled in your Spring Boot configuration</li>
+              <li>Check that the endpoints /api/jars and /api/deposits exist</li>
+              <li>Open browser dev tools → Network tab to see actual requests</li>
+            </ul>
+          </div>
         </div>
 
         {/* Stats Summary */}
@@ -884,15 +1179,25 @@ export default function ViewMyJars() {
                 Start your savings journey by creating your first jar. Set goals, track progress, and watch your money grow!
               </p>
               <div className="space-y-2">
-                <button className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2">
+                <button 
+                  onClick={() => setShowCreateModal(true)}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                >
                   <Plus className="w-4 h-4" />
                   <span>Create Your First Jar</span>
                 </button>
-                <p className={`text-xs ${
-                  isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                }`}>
-                  Go to "Create New Jar" to get started
-                </p>
+                {!isDemo && (
+                  <button
+                    onClick={loadDemoData}
+                    className={`w-full px-6 py-2 rounded-lg transition-colors font-medium ${
+                      isDarkMode 
+                        ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
+                        : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+                    }`}
+                  >
+                    Load Demo Data
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -910,21 +1215,65 @@ export default function ViewMyJars() {
           </div>
         )}
 
-        {/* Refresh Button */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={fetchJars}
-            disabled={loading}
-            className={`px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-              isDarkMode 
-                ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
-                : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
-            }`}
-          >
-            {loading ? 'Refreshing...' : 'Refresh Jars'}
-          </button>
+        {/* Action Buttons */}
+        <div className="mt-8 flex justify-center space-x-4">
+          {!isDemo && (
+            <button
+              onClick={fetchJars}
+              disabled={loading}
+              className={`px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 ${
+                isDarkMode 
+                  ? 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700' 
+                  : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Refreshing...' : 'Refresh Jars'}</span>
+            </button>
+          )}
+          
+          {isDemo && (
+            <button
+              onClick={fetchJars}
+              className="px-6 py-2 rounded-lg transition-colors font-medium bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Connect to Real API</span>
+            </button>
+          )}
+        </div>
+
+        {/* API Endpoints Info */}
+        <div className={`mt-8 p-4 rounded-lg border ${
+          isDarkMode 
+            ? 'bg-gray-800 border-gray-700' 
+            : 'bg-gray-50 border-gray-200'
+        }`}>
+          <h4 className={`font-medium mb-2 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            API Endpoints Used:
+          </h4>
+          <div className={`text-sm space-y-1 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            <div>• <code>GET /api/jars</code> - Fetch user's jars</div>
+            <div>• <code>POST /api/jars</code> - Create new jar</div>
+            <div>• <code>PUT /api/jars/{`{id}`}</code> - Update jar</div>
+            <div>• <code>DELETE /api/jars/{`{id}`}</code> - Delete jar</div>
+            <div>• <code>POST /api/deposits/jar/{`{jarId}`}/user/{`{userId}`}</code> - Add deposit</div>
+            <div>• <code>GET /api/deposits/jar/{`{jarId}`}</code> - Get jar deposits</div>
+          </div>
         </div>
       </div>
+
+      {/* Create Jar Modal */}
+      <CreateJarModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onJarCreated={handleJarCreated}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 }

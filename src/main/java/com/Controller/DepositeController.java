@@ -10,7 +10,7 @@ import com.service.DepositeService;
 
 @RestController
 @RequestMapping("/api/deposits")
-@CrossOrigin
+@CrossOrigin(origins = "http://localhost:5173")
 public class DepositeController {
 
     @Autowired
