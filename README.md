@@ -46,8 +46,8 @@
 
 1. **Clone the repository**  
    ```bash
-   git clone https://github.com/your-username/finjar-backend.git
-   cd finjar-backend
+   git clone https://github.com/sumitmahankale/FinJar.git
+   cd finjar
    ```
 
 2. **Configure `application.properties`**
