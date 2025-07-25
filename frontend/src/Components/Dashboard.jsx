@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ViewJars from './ViewJars'; 
 import { 
   PiggyBank, 
   Plus, 
@@ -526,47 +527,53 @@ export default function FinJarMinimalDashboard() {
   };
 
   const renderEmptyContent = () => {
-    return (
-      <div className="flex items-center justify-center h-full w-full">
-        <div className="text-center py-12 max-w-md mx-auto px-4">
-          <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${
-            isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
-          }`}>
-            <PiggyBank className={`w-12 h-12 ${
-              isDarkMode ? 'text-gray-600' : 'text-gray-400'
-            }`} />
-          </div>
-          <h3 className={`text-2xl font-semibold mb-2 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Welcome, {user?.name?.split(' ')[0] || 'User'}!
-          </h3>
-          <h4 className={`text-xl font-medium mb-2 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            {getPageTitle()}
-          </h4>
-          <p className={`text-lg mb-4 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            Ready to work with your current Spring Boot backend
-          </p>
-          <p className={`text-sm ${
-            isDarkMode ? 'text-gray-500' : 'text-gray-500'
-          }`}>
-            Hover over the sidebar to expand navigation
-          </p>
-          {error && (
-            <p className={`text-xs mt-2 px-3 py-1 rounded-full ${
-              isDarkMode ? 'bg-yellow-900 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
-            }`}>
-              Using JWT token data (Backend: /auth endpoint detected)
-            </p>
-          )}
+  // Render ViewJars component when jars tab is active
+  if (activeTab === 'jars') {
+    return <ViewJars isDarkMode={isDarkMode} />;
+  }
+
+  // Default empty content for other tabs
+  return (
+    <div className="flex items-center justify-center h-full w-full">
+      <div className="text-center py-12 max-w-md mx-auto px-4">
+        <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${
+          isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
+        }`}>
+          <PiggyBank className={`w-12 h-12 ${
+            isDarkMode ? 'text-gray-600' : 'text-gray-400'
+          }`} />
         </div>
+        <h3 className={`text-2xl font-semibold mb-2 ${
+          isDarkMode ? 'text-white' : 'text-gray-900'
+        }`}>
+          Welcome, {user?.name?.split(' ')[0] || 'User'}!
+        </h3>
+        <h4 className={`text-xl font-medium mb-2 ${
+          isDarkMode ? 'text-gray-300' : 'text-gray-700'
+        }`}>
+          {getPageTitle()}
+        </h4>
+        <p className={`text-lg mb-4 ${
+          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+        }`}>
+          Ready to work with your current Spring Boot backend
+        </p>
+        <p className={`text-sm ${
+          isDarkMode ? 'text-gray-500' : 'text-gray-500'
+        }`}>
+          Hover over the sidebar to expand navigation
+        </p>
+        {error && (
+          <p className={`text-xs mt-2 px-3 py-1 rounded-full ${
+            isDarkMode ? 'bg-yellow-900 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
+          }`}>
+            Using JWT token data (Backend: /auth endpoint detected)
+          </p>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   return (
     <div className={`h-screen flex transition-colors duration-300 ${

@@ -26,25 +26,24 @@ public class JarController {
     @Autowired	
     private JarService jarService;
 
-    // ✅ Create a jar for a specific user
+   
     @PostMapping
     public Jar createJar(@RequestBody Jar jar, @RequestHeader("Authorization") String authHeader) {
         return jarService.createJarFromToken(jar, authHeader);
     }
 
-    // ✅ Get all jars for a specific user
+    
     @GetMapping
     public List<Jar> getMyJars(@RequestHeader("Authorization") String authHeader) {
         return jarService.getJarsByToken(authHeader);
     }
 
-    // ✅ Update jar by ID
+   
     @PutMapping("/{id}")
     public Jar updateJar(@PathVariable Long id, @RequestBody Jar jar) {
         return jarService.updateJar(id, jar);
     }
 
-    // ✅ Delete jar by ID
     @DeleteMapping("/{id}")
     public String deleteJar(@PathVariable Long id) {
         jarService.deleteJar(id);

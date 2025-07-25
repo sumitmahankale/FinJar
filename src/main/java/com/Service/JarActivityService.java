@@ -9,4 +9,5 @@ import com.model.User;
 public interface JarActivityService {
     void logActivity(Jar jar, User user, String action);
     List<JarActivity> getJarActivities(Jar jar);
+    
 }

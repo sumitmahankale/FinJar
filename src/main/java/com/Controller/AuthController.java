@@ -40,7 +40,7 @@ public class AuthController {
                     authRequest.getPassword()
                 )
             );
-        } catch (Exception e) { // catch generic exception instead
+        } catch (Exception e) { 
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
         }
 
