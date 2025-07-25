@@ -89,65 +89,168 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
   };
 
-  // Get user profile to extract numeric user ID
-  const getUserProfile = async () => {
+  // Enhanced function to get numeric user ID from various sources
+  const getNumericUserId = async () => {
     try {
       const token = getAuthToken();
       if (!token) return null;
 
-      // Try to get user profile from backend
-      const response = await fetch('http://localhost:8080/api/users/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('User profile data:', userData);
-        return userData;
-      } else {
-        console.log('Profile API not available, trying jars approach');
-        return null;
+      // First, try to get from stored user data
+      let user = getCurrentUser();
+      if (user && user.id && !isNaN(user.id)) {
+        console.log('Found numeric user ID from stored data:', user.id);
+        return parseInt(user.id);
       }
-    } catch (error) {
-      console.log('Profile API error, trying jars approach:', error);
-      return null;
-    }
-  };
 
-  // Extract user ID from jars data (since jars are user-specific)
-  const getUserIdFromJars = async () => {
-    try {
-      const token = getAuthToken();
-      if (!token) return null;
+      // Method 1: Try to get user profile from backend
+      try {
+        console.log('Attempting to fetch user profile...');
+        const response = await fetch('http://localhost:8080/api/users/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      const response = await fetch('http://localhost:8080/api/jars', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const jarsData = await response.json();
-        console.log('Jars data for user ID extraction:', jarsData);
-        
-        if (jarsData && jarsData.length > 0) {
-          // Try different possible fields where user ID might be stored
-          const jar = jarsData[0];
-          const userId = jar.userId || jar.user_id || jar.ownerId || jar.owner_id;
-          if (userId && !isNaN(userId)) {
-            console.log('Found numeric user ID from jars:', userId);
-            return parseInt(userId);
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('User profile data:', userData);
+          if (userData.id && !isNaN(userData.id)) {
+            const numericId = parseInt(userData.id);
+            // Store the complete user data for future use
+            localStorage.setItem('currentUser', JSON.stringify({...user, ...userData, id: numericId}));
+            console.log('Got numeric user ID from profile:', numericId);
+            return numericId;
           }
         }
+      } catch (profileError) {
+        console.log('Profile API not available:', profileError);
       }
+
+      // Method 2: Extract user ID from jars data
+      try {
+        console.log('Trying to extract user ID from jars...');
+        const response = await fetch('http://localhost:8080/api/jars', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const jarsData = await response.json();
+          console.log('Jars data for user ID extraction:', jarsData);
+          
+          if (jarsData && jarsData.length > 0) {
+            // Try different possible fields where user ID might be stored
+            const jar = jarsData[0];
+            const possibleUserIdFields = [
+              'userId', 'user_id', 'ownerId', 'owner_id', 
+              'createdBy', 'created_by', 'userID', 'ownerID'
+            ];
+            
+            for (const field of possibleUserIdFields) {
+              const userId = jar[field];
+              if (userId && !isNaN(userId)) {
+                const numericId = parseInt(userId);
+                console.log(`Found numeric user ID from jars.${field}:`, numericId);
+                // Store the user ID for future use
+                localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
+                return numericId;
+              }
+            }
+            
+            // If no direct user ID field, check if there's a nested user object
+            if (jar.user && jar.user.id && !isNaN(jar.user.id)) {
+              const numericId = parseInt(jar.user.id);
+              console.log('Found numeric user ID from jar.user.id:', numericId);
+              localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
+              return numericId;
+            }
+          }
+        }
+      } catch (jarsError) {
+        console.error('Error fetching user ID from jars:', jarsError);
+      }
+
+      // Method 3: Try to get from activities if available
+      try {
+        console.log('Trying to extract user ID from activities...');
+        const response = await fetch('http://localhost:8080/api/activities', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const activitiesData = await response.json();
+          console.log('Activities data for user ID extraction:', activitiesData);
+          
+          if (activitiesData && activitiesData.length > 0) {
+            const activity = activitiesData[0];
+            const possibleUserIdFields = [
+              'userId', 'user_id', 'performedBy', 'performed_by', 
+              'createdBy', 'created_by', 'userID'
+            ];
+            
+            for (const field of possibleUserIdFields) {
+              const userId = activity[field];
+              if (userId && !isNaN(userId)) {
+                const numericId = parseInt(userId);
+                console.log(`Found numeric user ID from activities.${field}:`, numericId);
+                localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
+                return numericId;
+              }
+            }
+          }
+        }
+      } catch (activitiesError) {
+        console.log('Activities API not available:', activitiesError);
+      }
+
+      // Method 4: Try to get from deposits if available
+      if (jars.length > 0) {
+        try {
+          console.log('Trying to extract user ID from deposits...');
+          const response = await fetch(`http://localhost:8080/api/deposits/jar/${jars[0].id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (response.ok) {
+            const depositsData = await response.json();
+            console.log('Deposits data for user ID extraction:', depositsData);
+            
+            if (depositsData && depositsData.length > 0) {
+              const deposit = depositsData[0];
+              const possibleUserIdFields = [
+                'userId', 'user_id', 'depositorId', 'depositor_id',
+                'createdBy', 'created_by', 'userID'
+              ];
+              
+              for (const field of possibleUserIdFields) {
+                const userId = deposit[field];
+                if (userId && !isNaN(userId)) {
+                  const numericId = parseInt(userId);
+                  console.log(`Found numeric user ID from deposits.${field}:`, numericId);
+                  localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
+                  return numericId;
+                }
+              }
+            }
+          }
+        } catch (depositsError) {
+          console.log('Deposits API not available:', depositsError);
+        }
+      }
+
+      return null;
     } catch (error) {
-      console.error('Error fetching user ID from jars:', error);
+      console.error('Error getting numeric user ID:', error);
+      return null;
     }
-    return null;
   };
 
   // Fetch user's jars
@@ -236,7 +339,7 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
   };
 
-  // Enhanced function to add deposit with better error handling
+  // Enhanced function to add deposit with comprehensive user ID resolution
   const addDeposit = async () => {
     setDepositError('');
     
@@ -252,59 +355,30 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
 
     const token = getAuthToken();
-    let user = getCurrentUser();
     
     if (!token) {
       setDepositError('Authentication token not found. Please log in again.');
       return;
     }
     
-    console.log('Current user before deposit:', user);
-
-    // Get numeric user ID - this is crucial for the backend
-    let numericUserId = null;
-
-    // First try to get from stored user data (if it's already numeric)
-    if (user && user.id && !isNaN(user.id)) {
-      numericUserId = parseInt(user.id);
-    }
-
-    // If no numeric ID, try to get user profile from backend
-    if (!numericUserId) {
-      console.log('No numeric user ID found, trying to fetch user profile...');
-      const profile = await getUserProfile();
-      if (profile && profile.id && !isNaN(profile.id)) {
-        numericUserId = parseInt(profile.id);
-        // Update localStorage with complete user data
-        const updatedUser = { ...user, ...profile, id: numericUserId };
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        console.log('Got numeric user ID from profile:', numericUserId);
-      }
-    }
-
-    // If still no numeric ID, try to extract from jars
-    if (!numericUserId) {
-      console.log('Profile approach failed, trying jars approach...');
-      numericUserId = await getUserIdFromJars();
-      if (numericUserId) {
-        // Update localStorage with the found user ID
-        const updatedUser = { ...user, id: numericUserId };
-        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        console.log('Got numeric user ID from jars:', numericUserId);
-      }
-    }
-
-    if (!numericUserId) {
-      setDepositError(
-        `Unable to determine your numeric user ID. The backend requires a numeric user ID but we found: "${user?.id}". ` +
-        'Please contact support or try logging out and back in.'
-      );
-      return;
-    }
-
+    console.log('Starting deposit process...');
     setDepositLoading(true);
 
     try {
+      // Get numeric user ID using all available methods
+      const numericUserId = await getNumericUserId();
+      
+      if (!numericUserId) {
+        setDepositError(
+          'Unable to determine your numeric user ID. This might be because:\n' +
+          '1. Your account data is incomplete\n' +
+          '2. The backend database needs to be checked\n' +
+          '3. You may need to log out and log in again\n\n' +
+          'Please try logging out and back in, or contact support if the issue persists.'
+        );
+        return;
+      }
+
       console.log(`Making deposit request for jar ${selectedJar.id} and user ${numericUserId}`);
       
       const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${numericUserId}`, {
@@ -322,6 +396,7 @@ const ViewJars = ({ isDarkMode = false }) => {
       if (response.ok) {
         setDepositAmount('');
         setDepositError('');
+        console.log('Deposit added successfully!');
         // Refresh data
         await fetchDeposits(selectedJar.id);
         await fetchActivities(selectedJar.id);
@@ -335,6 +410,8 @@ const ViewJars = ({ isDarkMode = false }) => {
           setDepositError('You do not have permission to add deposits to this jar.');
         } else if (response.status === 400) {
           setDepositError(`Invalid request: ${errorText}. Please check your input and try again.`);
+        } else if (response.status === 404) {
+          setDepositError('Jar or user not found. Please refresh the page and try again.');
         } else {
           setDepositError(`Failed to add deposit: Server error (${response.status}). ${errorText}`);
         }
@@ -582,9 +659,9 @@ const ViewJars = ({ isDarkMode = false }) => {
                 }`}>
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <p className={`text-sm ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    <pre className={`text-sm whitespace-pre-wrap ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
                       {depositError}
-                    </p>
+                    </pre>
                     {depositError.includes('log out and log in again') && (
                       <div className="mt-2">
                         <button
@@ -774,7 +851,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                           {progress >= 100 ? (
                             <span className="text-green-500 font-medium">🎉 Goal Achieved!</span>
                           ) : (
-                            `₹${formatCurrency(goalAmount - currentAmount)} remaining`
+                            `₹{formatCurrency(goalAmount - currentAmount)} remaining`
                           )}
                         </p>
                       </div>
