@@ -27,230 +27,33 @@ const ViewJars = ({ isDarkMode = false }) => {
     return token;
   };
 
-  const getCurrentUser = () => {
-    try {
-      // Try different possible keys for user data
-      const possibleKeys = ['user', 'currentUser', 'userData', 'authUser'];
-      
-      for (const key of possibleKeys) {
-        const userData = localStorage.getItem(key);
-        if (userData) {
-          try {
-            const parsedUser = JSON.parse(userData);
-            // Ensure we have a numeric ID
-            if (parsedUser.id && !isNaN(parsedUser.id)) {
-              return parsedUser;
-            }
-          } catch (parseError) {
-            console.warn(`Failed to parse user data from key '${key}':`, parseError);
-          }
-        }
+
+
+  // Get numeric user ID from jars (since jars have user_id)
+  const getNumericUserIdFromJars = () => {
+    // First try to get from selectedJar
+    if (selectedJar) {
+      console.log('Getting user ID from selectedJar:', selectedJar);
+      const userId = selectedJar.user_id || selectedJar.userId;
+      if (userId) {
+        console.log('Found user ID from selectedJar:', userId);
+        return userId;
       }
-      
-      // If no user found, try to extract from token
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          const parts = token.split('.');
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]));
-            console.log('Token payload:', payload);
-            
-            // Try different possible user ID fields in the token
-            const userId = payload.userId || payload.user_id || payload.sub || payload.id;
-            const userEmail = payload.email || payload.sub;
-            
-            if (userId) {
-              return { 
-                id: userId, 
-                email: userEmail || payload.email,
-                ...payload 
-              };
-            }
-            
-            // If we have email but no explicit user ID, we'll need to fetch it
-            if (userEmail) {
-              return { 
-                email: userEmail, 
-                needsUserIdFetch: true, 
-                ...payload 
-              };
-            }
-          }
-        } catch (tokenError) {
-          console.warn('Failed to extract user from token:', tokenError);
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
     }
-  };
-
-  // Enhanced function to get numeric user ID from various sources
-  const getNumericUserId = async () => {
-    try {
-      const token = getAuthToken();
-      if (!token) return null;
-
-      // First, try to get from stored user data
-      let user = getCurrentUser();
-      if (user && user.id && !isNaN(user.id)) {
-        console.log('Found numeric user ID from stored data:', user.id);
-        return parseInt(user.id);
+    
+    // Fallback to first jar
+    if (jars.length > 0) {
+      const jar = jars[0];
+      console.log('Getting user ID from first jar:', jar);
+      const userId = jar.user_id || jar.userId;
+      if (userId) {
+        console.log('Found user ID from first jar:', userId);
+        return userId;
       }
-
-      // Method 1: Try to get user profile from backend
-      try {
-        console.log('Attempting to fetch user profile...');
-        const response = await fetch('http://localhost:8080/api/users/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('User profile data:', userData);
-          if (userData.id && !isNaN(userData.id)) {
-            const numericId = parseInt(userData.id);
-            // Store the complete user data for future use
-            localStorage.setItem('currentUser', JSON.stringify({...user, ...userData, id: numericId}));
-            console.log('Got numeric user ID from profile:', numericId);
-            return numericId;
-          }
-        }
-      } catch (profileError) {
-        console.log('Profile API not available:', profileError);
-      }
-
-      // Method 2: Extract user ID from jars data
-      try {
-        console.log('Trying to extract user ID from jars...');
-        const response = await fetch('http://localhost:8080/api/jars', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const jarsData = await response.json();
-          console.log('Jars data for user ID extraction:', jarsData);
-          
-          if (jarsData && jarsData.length > 0) {
-            // Try different possible fields where user ID might be stored
-            const jar = jarsData[0];
-            const possibleUserIdFields = [
-              'userId', 'user_id', 'ownerId', 'owner_id', 
-              'createdBy', 'created_by', 'userID', 'ownerID'
-            ];
-            
-            for (const field of possibleUserIdFields) {
-              const userId = jar[field];
-              if (userId && !isNaN(userId)) {
-                const numericId = parseInt(userId);
-                console.log(`Found numeric user ID from jars.${field}:`, numericId);
-                // Store the user ID for future use
-                localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
-                return numericId;
-              }
-            }
-            
-            // If no direct user ID field, check if there's a nested user object
-            if (jar.user && jar.user.id && !isNaN(jar.user.id)) {
-              const numericId = parseInt(jar.user.id);
-              console.log('Found numeric user ID from jar.user.id:', numericId);
-              localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
-              return numericId;
-            }
-          }
-        }
-      } catch (jarsError) {
-        console.error('Error fetching user ID from jars:', jarsError);
-      }
-
-      // Method 3: Try to get from activities if available
-      try {
-        console.log('Trying to extract user ID from activities...');
-        const response = await fetch('http://localhost:8080/api/activities', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const activitiesData = await response.json();
-          console.log('Activities data for user ID extraction:', activitiesData);
-          
-          if (activitiesData && activitiesData.length > 0) {
-            const activity = activitiesData[0];
-            const possibleUserIdFields = [
-              'userId', 'user_id', 'performedBy', 'performed_by', 
-              'createdBy', 'created_by', 'userID'
-            ];
-            
-            for (const field of possibleUserIdFields) {
-              const userId = activity[field];
-              if (userId && !isNaN(userId)) {
-                const numericId = parseInt(userId);
-                console.log(`Found numeric user ID from activities.${field}:`, numericId);
-                localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
-                return numericId;
-              }
-            }
-          }
-        }
-      } catch (activitiesError) {
-        console.log('Activities API not available:', activitiesError);
-      }
-
-      // Method 4: Try to get from deposits if available
-      if (jars.length > 0) {
-        try {
-          console.log('Trying to extract user ID from deposits...');
-          const response = await fetch(`http://localhost:8080/api/deposits/jar/${jars[0].id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          if (response.ok) {
-            const depositsData = await response.json();
-            console.log('Deposits data for user ID extraction:', depositsData);
-            
-            if (depositsData && depositsData.length > 0) {
-              const deposit = depositsData[0];
-              const possibleUserIdFields = [
-                'userId', 'user_id', 'depositorId', 'depositor_id',
-                'createdBy', 'created_by', 'userID'
-              ];
-              
-              for (const field of possibleUserIdFields) {
-                const userId = deposit[field];
-                if (userId && !isNaN(userId)) {
-                  const numericId = parseInt(userId);
-                  console.log(`Found numeric user ID from deposits.${field}:`, numericId);
-                  localStorage.setItem('currentUser', JSON.stringify({...user, id: numericId}));
-                  return numericId;
-                }
-              }
-            }
-          }
-        } catch (depositsError) {
-          console.log('Deposits API not available:', depositsError);
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error getting numeric user ID:', error);
-      return null;
     }
+    
+    console.log('No user ID found in jars');
+    return null;
   };
 
   // Fetch user's jars
@@ -314,32 +117,7 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
   };
 
-  // Fetch activities for a specific jar
-  const fetchActivities = async (jarId) => {
-    try {
-      const token = getAuthToken();
-      if (!token) {
-        console.error('No auth token found');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:8080/api/activities/jar/${jarId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        await response.json(); // Use it when needed
-      } else {
-        console.error(`Failed to fetch activities: ${response.status} ${response.statusText}`);
-      }
-    } catch (err) {
-      console.error('Error fetching activities:', err);
-    }
-  };
-
-  // Enhanced function to add deposit with comprehensive user ID resolution
+  // Add deposit function - simplified without user_id dependency
   const addDeposit = async () => {
     setDepositError('');
     
@@ -355,7 +133,6 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
 
     const token = getAuthToken();
-    
     if (!token) {
       setDepositError('Authentication token not found. Please log in again.');
       return;
@@ -365,23 +142,17 @@ const ViewJars = ({ isDarkMode = false }) => {
     setDepositLoading(true);
 
     try {
-      // Get numeric user ID using all available methods
-      const numericUserId = await getNumericUserId();
+      // Get user ID from the selected jar
+      const userId = getNumericUserIdFromJars();
       
-      if (!numericUserId) {
-        setDepositError(
-          'Unable to determine your numeric user ID. This might be because:\n' +
-          '1. Your account data is incomplete\n' +
-          '2. The backend database needs to be checked\n' +
-          '3. You may need to log out and log in again\n\n' +
-          'Please try logging out and back in, or contact support if the issue persists.'
-        );
+      if (!userId) {
+        setDepositError('Unable to determine user ID. Please refresh the page and try again.');
         return;
       }
 
-      console.log(`Making deposit request for jar ${selectedJar.id} and user ${numericUserId}`);
+      console.log(`Making deposit request for jar ${selectedJar.id} and user ${userId}`);
       
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${numericUserId}`, {
+      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${userId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -389,7 +160,7 @@ const ViewJars = ({ isDarkMode = false }) => {
         },
         body: JSON.stringify({
           amount,
-          depositDate: new Date().toISOString().split('T')[0] // Format: YYYY-MM-DD
+          date: new Date().toISOString()
         })
       });
 
@@ -399,11 +170,11 @@ const ViewJars = ({ isDarkMode = false }) => {
         console.log('Deposit added successfully!');
         // Refresh data
         await fetchDeposits(selectedJar.id);
-        await fetchActivities(selectedJar.id);
         await fetchJars();
       } else {
         const errorText = await response.text();
         console.error(`Failed to add deposit: ${response.status} ${response.statusText}`, errorText);
+        
         if (response.status === 401) {
           setDepositError('Authentication expired. Please log out and log in again.');
         } else if (response.status === 403) {
@@ -442,7 +213,6 @@ const ViewJars = ({ isDarkMode = false }) => {
 
       if (response.ok) {
         await fetchDeposits(selectedJar.id);
-        await fetchActivities(selectedJar.id);
         await fetchJars();
       } else {
         console.error(`Failed to delete deposit: ${response.status} ${response.statusText}`);
@@ -459,7 +229,6 @@ const ViewJars = ({ isDarkMode = false }) => {
   useEffect(() => {
     if (selectedJar) {
       fetchDeposits(selectedJar.id);
-      fetchActivities(selectedJar.id);
     }
   }, [selectedJar]);
 
@@ -512,9 +281,10 @@ const ViewJars = ({ isDarkMode = false }) => {
 
   // Jar Details View
   if (selectedJar) {
-    // Enhanced data extraction with multiple fallback options and proper formatting
-    const currentAmount = selectedJar.currentAmount || selectedJar.current_amount || selectedJar.amount || 0;
-    const goalAmount = selectedJar.goalAmount || selectedJar.goal_amount || selectedJar.targetAmount || selectedJar.target_amount || selectedJar.target || 0;
+    // Use the correct database field names
+    const currentAmount = selectedJar.saved_amount || selectedJar.current_amount || 0;
+    const goalAmount = selectedJar.target_amount || selectedJar.targetAmount || 0;
+    const jarName = selectedJar.title || selectedJar.name || 'Unnamed Jar';
     const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
     const remainingAmount = Math.max(0, goalAmount - currentAmount);
     
@@ -553,7 +323,7 @@ const ViewJars = ({ isDarkMode = false }) => {
               <PiggyBank className="w-8 h-8 text-blue-600" />
               <div>
                 <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {selectedJar.name}
+                  {jarName}
                 </h2>
                 <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Savings Jar
@@ -649,7 +419,7 @@ const ViewJars = ({ isDarkMode = false }) => {
             {/* Add Deposit */}
             <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Add Deposit to "{selectedJar.name}"
+                Add Deposit to "{jarName}"
               </h3>
               
               {/* Error Message */}
@@ -709,7 +479,7 @@ const ViewJars = ({ isDarkMode = false }) => {
             {/* Recent Deposits */}
             <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Recent Deposits - "{selectedJar.name}"
+                Recent Deposits - "{jarName}"
               </h3>
               {deposits.length === 0 ? (
                 <p className={`text-center py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -728,7 +498,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                             ₹{formatCurrency(deposit.amount)}
                           </p>
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {new Date(deposit.depositeDate || deposit.depositDate).toLocaleDateString()}
+                            {new Date(deposit.date || deposit.timestamp).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -774,9 +544,9 @@ const ViewJars = ({ isDarkMode = false }) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
-              // Enhanced data extraction with multiple fallback options
-              const currentAmount = jar.currentAmount || jar.current_amount || jar.amount || 0;
-              const goalAmount = jar.goalAmount || jar.goal_amount || jar.targetAmount || jar.target_amount || jar.target || 0;
+              // Use correct database field names
+              const currentAmount = jar.saved_amount || jar.current_amount || 0;
+              const goalAmount = jar.target_amount || jar.targetAmount || 0;
               const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
               
               const formatCurrency = (amount) => {
@@ -798,7 +568,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                     <div className="flex items-center space-x-3">
                       <PiggyBank className="w-6 h-6 text-blue-600" />
                       <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {jar.name}
+                        {jar.title || jar.name}
                       </h3>
                     </div>
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -851,7 +621,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                           {progress >= 100 ? (
                             <span className="text-green-500 font-medium">🎉 Goal Achieved!</span>
                           ) : (
-                            `₹{formatCurrency(goalAmount - currentAmount)} remaining`
+                            `₹${formatCurrency(goalAmount - currentAmount)} remaining`
                           )}
                         </p>
                       </div>
