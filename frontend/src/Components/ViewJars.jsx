@@ -54,10 +54,27 @@ const ViewJars = ({ isDarkMode = false }) => {
           const parts = token.split('.');
           if (parts.length === 3) {
             const payload = JSON.parse(atob(parts[1]));
+            console.log('Token payload:', payload);
             
-            // For now, we'll mark that we need a user ID fetch from jars
-            if (payload.sub) {
-              return { email: payload.sub, needsUserIdFetch: true, ...payload };
+            // Try different possible user ID fields in the token
+            const userId = payload.userId || payload.user_id || payload.sub || payload.id;
+            const userEmail = payload.email || payload.sub;
+            
+            if (userId) {
+              return { 
+                id: userId, 
+                email: userEmail || payload.email,
+                ...payload 
+              };
+            }
+            
+            // If we have email but no explicit user ID, we'll need to fetch it
+            if (userEmail) {
+              return { 
+                email: userEmail, 
+                needsUserIdFetch: true, 
+                ...payload 
+              };
             }
           }
         } catch (tokenError) {
@@ -68,6 +85,34 @@ const ViewJars = ({ isDarkMode = false }) => {
       return null;
     } catch (error) {
       console.error('Error getting current user:', error);
+      return null;
+    }
+  };
+
+  // Get user profile to extract numeric user ID
+  const getUserProfile = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) return null;
+
+      // Try to get user profile from backend
+      const response = await fetch('http://localhost:8080/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('User profile data:', userData);
+        return userData;
+      } else {
+        console.log('Profile API not available, trying jars approach');
+        return null;
+      }
+    } catch (error) {
+      console.log('Profile API error, trying jars approach:', error);
       return null;
     }
   };
@@ -87,8 +132,16 @@ const ViewJars = ({ isDarkMode = false }) => {
 
       if (response.ok) {
         const jarsData = await response.json();
-        if (jarsData && jarsData.length > 0 && jarsData[0].userId) {
-          return jarsData[0].userId;
+        console.log('Jars data for user ID extraction:', jarsData);
+        
+        if (jarsData && jarsData.length > 0) {
+          // Try different possible fields where user ID might be stored
+          const jar = jarsData[0];
+          const userId = jar.userId || jar.user_id || jar.ownerId || jar.owner_id;
+          if (userId && !isNaN(userId)) {
+            console.log('Found numeric user ID from jars:', userId);
+            return parseInt(userId);
+          }
         }
       }
     } catch (error) {
@@ -116,6 +169,7 @@ const ViewJars = ({ isDarkMode = false }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched jars:', data);
         setJars(data);
       } else if (response.status === 401) {
         setError('Authentication expired. Please log in again.');
@@ -147,6 +201,7 @@ const ViewJars = ({ isDarkMode = false }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched deposits:', data);
         setDeposits(data);
       } else {
         console.error(`Failed to fetch deposits: ${response.status} ${response.statusText}`);
@@ -204,38 +259,55 @@ const ViewJars = ({ isDarkMode = false }) => {
       return;
     }
     
-    if (!user) {
-      setDepositError('User information not found. Please log out and log in again to refresh your session.');
-      return;
+    console.log('Current user before deposit:', user);
+
+    // Get numeric user ID - this is crucial for the backend
+    let numericUserId = null;
+
+    // First try to get from stored user data (if it's already numeric)
+    if (user && user.id && !isNaN(user.id)) {
+      numericUserId = parseInt(user.id);
     }
 
-    // If user needs ID fetch, get it from jars endpoint
-    if (user.needsUserIdFetch && user.email) {
-      const userId = await getUserIdFromJars();
-      if (!userId) {
-        // If we can't get user ID from jars, try using the jar's userId from selectedJar
-        if (selectedJar && selectedJar.userId) {
-          user = { ...user, id: selectedJar.userId, needsUserIdFetch: false };
-          localStorage.setItem('currentUser', JSON.stringify(user));
-        } else {
-          setDepositError('Unable to determine user ID. Please refresh the page and try again.');
-          return;
-        }
-      } else {
-        user = { ...user, id: userId, needsUserIdFetch: false };
-        localStorage.setItem('currentUser', JSON.stringify(user));
+    // If no numeric ID, try to get user profile from backend
+    if (!numericUserId) {
+      console.log('No numeric user ID found, trying to fetch user profile...');
+      const profile = await getUserProfile();
+      if (profile && profile.id && !isNaN(profile.id)) {
+        numericUserId = parseInt(profile.id);
+        // Update localStorage with complete user data
+        const updatedUser = { ...user, ...profile, id: numericUserId };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        console.log('Got numeric user ID from profile:', numericUserId);
       }
     }
 
-    if (!user.id) {
-      setDepositError('User ID not found. Please log out and log in again.');
+    // If still no numeric ID, try to extract from jars
+    if (!numericUserId) {
+      console.log('Profile approach failed, trying jars approach...');
+      numericUserId = await getUserIdFromJars();
+      if (numericUserId) {
+        // Update localStorage with the found user ID
+        const updatedUser = { ...user, id: numericUserId };
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        console.log('Got numeric user ID from jars:', numericUserId);
+      }
+    }
+
+    if (!numericUserId) {
+      setDepositError(
+        `Unable to determine your numeric user ID. The backend requires a numeric user ID but we found: "${user?.id}". ` +
+        'Please contact support or try logging out and back in.'
+      );
       return;
     }
 
     setDepositLoading(true);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${user.id}`, {
+      console.log(`Making deposit request for jar ${selectedJar.id} and user ${numericUserId}`);
+      
+      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${numericUserId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -250,6 +322,7 @@ const ViewJars = ({ isDarkMode = false }) => {
       if (response.ok) {
         setDepositAmount('');
         setDepositError('');
+        // Refresh data
         await fetchDeposits(selectedJar.id);
         await fetchActivities(selectedJar.id);
         await fetchJars();
@@ -261,9 +334,9 @@ const ViewJars = ({ isDarkMode = false }) => {
         } else if (response.status === 403) {
           setDepositError('You do not have permission to add deposits to this jar.');
         } else if (response.status === 400) {
-          setDepositError('Invalid request. Please check your input and try again.');
+          setDepositError(`Invalid request: ${errorText}. Please check your input and try again.`);
         } else {
-          setDepositError(`Failed to add deposit: Server error (${response.status})`);
+          setDepositError(`Failed to add deposit: Server error (${response.status}). ${errorText}`);
         }
       }
     } catch (err) {
@@ -362,8 +435,27 @@ const ViewJars = ({ isDarkMode = false }) => {
 
   // Jar Details View
   if (selectedJar) {
-    const progress = selectedJar.goalAmount > 0 ? (selectedJar.currentAmount / selectedJar.goalAmount) * 100 : 0;
-    const currentUser = getCurrentUser();
+    // Enhanced data extraction with multiple fallback options and proper formatting
+    const currentAmount = selectedJar.currentAmount || selectedJar.current_amount || selectedJar.amount || 0;
+    const goalAmount = selectedJar.goalAmount || selectedJar.goal_amount || selectedJar.targetAmount || selectedJar.target_amount || selectedJar.target || 0;
+    const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
+    const remainingAmount = Math.max(0, goalAmount - currentAmount);
+    
+    // Format numbers properly
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('en-IN', {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0
+      }).format(amount || 0);
+    };
+
+    console.log('Jar details:', {
+      currentAmount,
+      goalAmount,
+      progress,
+      remainingAmount,
+      selectedJar
+    });
 
     return (
       <div className="h-full flex flex-col">
@@ -396,63 +488,89 @@ const ViewJars = ({ isDarkMode = false }) => {
 
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Jar Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            {/* Jar Stats - Enhanced with better visibility */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                 <div className="flex items-center space-x-3">
                   <DollarSign className="w-8 h-8 text-green-500" />
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Current Amount</p>
-                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      ₹{selectedJar.currentAmount}
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Current Amount</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                      ₹{formatCurrency(currentAmount)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                 <div className="flex items-center space-x-3">
                   <Target className="w-8 h-8 text-blue-500" />
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Goal Amount</p>
-                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                      ₹{selectedJar.goalAmount}
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Goal Amount</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                      ₹{formatCurrency(goalAmount)}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                 <div className="flex items-center space-x-3">
                   <Activity className="w-8 h-8 text-purple-500" />
                   <div>
-                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Progress</p>
-                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Progress</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                       {progress.toFixed(1)}%
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Progress Bar */}
-            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
-              <div className="mb-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Progress to Goal</span>
-                  <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{progress.toFixed(1)}%</span>
-                </div>
-                <div className={`w-full h-3 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                  <div 
-                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  ></div>
+              <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
+                <div className="flex items-center space-x-3">
+                  <Target className="w-8 h-8 text-orange-500" />
+                  <div>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                      ₹{formatCurrency(remainingAmount)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Enhanced Progress Bar */}
+            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
+              <div className="mb-6">
+                <div className="flex justify-between items-center text-sm mb-3">
+                  <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Progress to Goal</span>
+                  <div className="flex items-center space-x-4">
+                    <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      ₹{formatCurrency(currentAmount)} / ₹{formatCurrency(goalAmount)}
+                    </span>
+                    <span className={`font-bold ${progress >= 100 ? 'text-green-500' : 'text-blue-500'}`}>
+                      {progress.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className={`w-full h-4 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      progress >= 100 ? 'bg-green-500' : 'bg-blue-500'
+                    }`}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
+                  ></div>
+                </div>
+                {progress >= 100 && (
+                  <div className="mt-2 text-center">
+                    <span className="text-green-500 font-semibold text-sm">🎉 Goal Achieved!</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Add Deposit */}
-            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Add Deposit to "{selectedJar.name}"
               </h3>
@@ -498,7 +616,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                 />
                 <button
                   onClick={addDeposit}
-                  disabled={!depositAmount || depositLoading || !currentUser}
+                  disabled={!depositAmount || depositLoading}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {depositLoading ? (
@@ -512,7 +630,7 @@ const ViewJars = ({ isDarkMode = false }) => {
             </div>
 
             {/* Recent Deposits */}
-            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-sm`}>
+            <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Recent Deposits - "{selectedJar.name}"
               </h3>
@@ -530,10 +648,10 @@ const ViewJars = ({ isDarkMode = false }) => {
                         <Calendar size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-600'} />
                         <div>
                           <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            ₹{deposit.amount}
+                            ₹{formatCurrency(deposit.amount)}
                           </p>
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {new Date(deposit.depositeDate).toLocaleDateString()}
+                            {new Date(deposit.depositeDate || deposit.depositDate).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -558,7 +676,7 @@ const ViewJars = ({ isDarkMode = false }) => {
     );
   }
 
-  // Jars List View
+  // Jars List View - Enhanced with better visibility
   return (
     <div className="h-full flex flex-col">
       <div className="p-6">
@@ -579,15 +697,25 @@ const ViewJars = ({ isDarkMode = false }) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
-              const progress = jar.goalAmount > 0 ? (jar.currentAmount / jar.goalAmount) * 100 : 0;
+              // Enhanced data extraction with multiple fallback options
+              const currentAmount = jar.currentAmount || jar.current_amount || jar.amount || 0;
+              const goalAmount = jar.goalAmount || jar.goal_amount || jar.targetAmount || jar.target_amount || jar.target || 0;
+              const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
+              
+              const formatCurrency = (amount) => {
+                return new Intl.NumberFormat('en-IN', {
+                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 0
+                }).format(amount || 0);
+              };
               
               return (
                 <div
                   key={jar.id}
                   onClick={() => setSelectedJar(jar)}
                   className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 ${
-                    isDarkMode ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:shadow-lg'
-                  } shadow-sm border ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}
+                    isDarkMode ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' : 'bg-white hover:shadow-lg border border-gray-200'
+                  } shadow-sm`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -596,17 +724,30 @@ const ViewJars = ({ isDarkMode = false }) => {
                         {jar.name}
                       </h3>
                     </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      progress >= 100 
+                        ? 'bg-green-100 text-green-800' 
+                        : progress >= 50 
+                        ? 'bg-yellow-100 text-yellow-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {progress.toFixed(0)}%
+                    </div>
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Progress</span>
-                        <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>{progress.toFixed(1)}%</span>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Progress</span>
+                        <span className={`font-bold ${progress >= 100 ? 'text-green-500' : 'text-blue-500'}`}>
+                          {progress.toFixed(1)}%
+                        </span>
                       </div>
-                      <div className={`w-full h-2 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                      <div className={`w-full h-3 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
                         <div 
-                          className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            progress >= 100 ? 'bg-green-500' : 'bg-blue-500'
+                          }`}
                           style={{ width: `${Math.min(progress, 100)}%` }}
                         ></div>
                       </div>
@@ -615,13 +756,29 @@ const ViewJars = ({ isDarkMode = false }) => {
                     <div className="flex justify-between">
                       <div>
                         <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Current</p>
-                        <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{jar.currentAmount}</p>
+                        <p className={`font-semibold text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+                          ₹{formatCurrency(currentAmount)}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Goal</p>
-                        <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{jar.goalAmount}</p>
+                        <p className={`font-semibold text-lg ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                          ₹{formatCurrency(goalAmount)}
+                        </p>
                       </div>
                     </div>
+                    
+                    {goalAmount > 0 && (
+                      <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          {progress >= 100 ? (
+                            <span className="text-green-500 font-medium">🎉 Goal Achieved!</span>
+                          ) : (
+                            `₹${formatCurrency(goalAmount - currentAmount)} remaining`
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
