@@ -29,6 +29,12 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     window.scrollTo(0, 0);
     console.log('Navigate to Login');
   };
+   const handledash = () => {
+    navigate('/');
+    // Scroll to top immediately after navigation
+    window.scrollTo(0, 0);
+    console.log('Navigate to Login');
+  };
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -439,6 +445,22 @@ export default function FinJarRegistration({ isDarkMode = false }) {
                       }`}
                     >
                       Sign In
+                    </a>
+                  </span>
+                </div>
+                 <div className="text-center pt-2">
+                  <span className={`transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Back To{' '}
+                    <a
+                      href="#"
+                      onClick={handledash}
+                      className={`font-medium transition-colors duration-300 underline-offset-2 hover:underline ${
+                        isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                      }`}
+                    >
+                      Home
                     </a>
                   </span>
                 </div>
