@@ -20,6 +20,7 @@ const ViewJars = ({ isDarkMode = false }) => {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Get auth token
   const getAuthToken = () => {
@@ -27,32 +28,55 @@ const ViewJars = ({ isDarkMode = false }) => {
     return token;
   };
 
-
-
-  // Get numeric user ID from jars (since jars have user_id)
-  const getNumericUserIdFromJars = () => {
-    // First try to get from selectedJar
-    if (selectedJar) {
-      console.log('Getting user ID from selectedJar:', selectedJar);
-      const userId = selectedJar.user_id || selectedJar.userId;
-      if (userId) {
-        console.log('Found user ID from selectedJar:', userId);
-        return userId;
+  // Get user ID from localStorage or decode from JWT token
+  const getCurrentUserId = () => {
+    // First try to get from localStorage
+    let userId = localStorage.getItem('userId');
+    
+    if (!userId) {
+      // Try to extract from JWT token
+      const token = getAuthToken();
+      if (token) {
+        try {
+          // Decode JWT token to get user ID
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          userId = payload.userId || payload.sub || payload.id;
+          console.log('Extracted user ID from token:', userId);
+          
+          // Store in localStorage for future use
+          if (userId) {
+            localStorage.setItem('userId', userId);
+          }
+        } catch (e) {
+          console.error('Error decoding JWT token:', e);
+        }
       }
     }
     
-    // Fallback to first jar
-    if (jars.length > 0) {
-      const jar = jars[0];
-      console.log('Getting user ID from first jar:', jar);
-      const userId = jar.user_id || jar.userId;
-      if (userId) {
-        console.log('Found user ID from first jar:', userId);
-        return userId;
-      }
+    console.log('Current user ID:', userId);
+    return userId;
+  };
+
+  // Get numeric user ID from current user or jars
+  const getNumericUserId = () => {
+    // First try current user ID
+    let userId = getCurrentUserId();
+    
+    if (userId) {
+      // Convert to number if it's a string
+      return parseInt(userId);
     }
     
-    console.log('No user ID found in jars');
+    // Fallback: try to get from jars
+    if (selectedJar && selectedJar.user_id) {
+      return selectedJar.user_id;
+    }
+    
+    if (jars.length > 0 && jars[0].user_id) {
+      return jars[0].user_id;
+    }
+    
+    console.log('No user ID found anywhere');
     return null;
   };
 
@@ -77,6 +101,12 @@ const ViewJars = ({ isDarkMode = false }) => {
         const data = await response.json();
         console.log('Fetched jars:', data);
         setJars(data);
+        
+        // Set current user ID if we haven't already
+        if (!currentUserId) {
+          const userId = getCurrentUserId();
+          setCurrentUserId(userId);
+        }
       } else if (response.status === 401) {
         setError('Authentication expired. Please log in again.');
       } else {
@@ -117,7 +147,7 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
   };
 
-  // Add deposit function - simplified without user_id dependency
+  // Add deposit function - fixed with proper user ID handling
   const addDeposit = async () => {
     setDepositError('');
     
@@ -142,15 +172,24 @@ const ViewJars = ({ isDarkMode = false }) => {
     setDepositLoading(true);
 
     try {
-      // Get user ID from the selected jar
-      const userId = getNumericUserIdFromJars();
+      // Get user ID using the improved method
+      const userId = getNumericUserId();
       
       if (!userId) {
-        setDepositError('Unable to determine user ID. Please refresh the page and try again.');
+        setDepositError('Unable to determine user ID. Please log out and log in again.');
         return;
       }
 
       console.log(`Making deposit request for jar ${selectedJar.id} and user ${userId}`);
+      
+      const depositData = {
+        amount: amount,
+        date: new Date().toISOString(),
+        jarId: selectedJar.id,
+        userId: userId
+      };
+      
+      console.log('Deposit data being sent:', depositData);
       
       const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${userId}`, {
         method: 'POST',
@@ -158,16 +197,15 @@ const ViewJars = ({ isDarkMode = false }) => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          amount,
-          date: new Date().toISOString()
-        })
+        body: JSON.stringify(depositData)
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Deposit added successfully!', result);
         setDepositAmount('');
         setDepositError('');
-        console.log('Deposit added successfully!');
+        
         // Refresh data
         await fetchDeposits(selectedJar.id);
         await fetchJars();
@@ -282,7 +320,7 @@ const ViewJars = ({ isDarkMode = false }) => {
   // Jar Details View
   if (selectedJar) {
     // Use the correct database field names
-    const currentAmount = selectedJar.saved_amount || selectedJar.current_amount || 0;
+    const currentAmount = selectedJar.saved_amount || selectedJar.current_amount || selectedJar.savedAmount || 0;
     const goalAmount = selectedJar.target_amount || selectedJar.targetAmount || 0;
     const jarName = selectedJar.title || selectedJar.name || 'Unnamed Jar';
     const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
@@ -422,6 +460,14 @@ const ViewJars = ({ isDarkMode = false }) => {
                 Add Deposit to "{jarName}"
               </h3>
               
+              {/* Debug Info */}
+              <div className={`mb-4 p-3 rounded-lg text-xs ${
+                isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+              }`}>
+                <p>Debug: Current User ID: {getCurrentUserId() || 'Not found'}</p>
+                <p>Debug: Jar ID: {selectedJar.id}</p>
+              </div>
+              
               {/* Error Message */}
               {depositError && (
                 <div className={`mb-4 p-3 rounded-lg flex items-start space-x-2 ${
@@ -545,7 +591,7 @@ const ViewJars = ({ isDarkMode = false }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
               // Use correct database field names
-              const currentAmount = jar.saved_amount || jar.current_amount || 0;
+              const currentAmount = jar.saved_amount || jar.current_amount || jar.savedAmount || 0;
               const goalAmount = jar.target_amount || jar.targetAmount || 0;
               const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
               
