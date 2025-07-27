@@ -8,7 +8,8 @@ import {
   DollarSign,
   Target,
   Activity,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 
 const ViewJars = ({ isDarkMode = false }) => {
@@ -20,244 +21,479 @@ const ViewJars = ({ isDarkMode = false }) => {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState('');
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Get auth token
+  // Get auth token from localStorage
   const getAuthToken = () => {
     const token = localStorage.getItem('authToken');
+    if (!token) {
+      setError('No authentication token found. Please log in again.');
+      return null;
+    }
     return token;
   };
 
-  // Get user ID from localStorage or decode from JWT token
-  const getCurrentUserId = () => {
-    // First try to get from localStorage
-    let userId = localStorage.getItem('userId');
-    
-    if (!userId) {
-      // Try to extract from JWT token
-      const token = getAuthToken();
-      if (token) {
-        try {
-          // Decode JWT token to get user ID
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          userId = payload.userId || payload.sub || payload.id;
-          console.log('Extracted user ID from token:', userId);
-          
-          // Store in localStorage for future use
-          if (userId) {
-            localStorage.setItem('userId', userId);
-          }
-        } catch (e) {
-          console.error('Error decoding JWT token:', e);
-        }
-      }
-    }
-    
-    console.log('Current user ID:', userId);
-    return userId;
-  };
-
-  // Get numeric user ID from current user or jars
-  const getNumericUserId = () => {
-    // First try current user ID
-    let userId = getCurrentUserId();
-    
-    if (userId) {
-      // Convert to number if it's a string
-      return parseInt(userId);
-    }
-    
-    // Fallback: try to get from jars
-    if (selectedJar && selectedJar.user_id) {
-      return selectedJar.user_id;
-    }
-    
-    if (jars.length > 0 && jars[0].user_id) {
-      return jars[0].user_id;
-    }
-    
-    console.log('No user ID found anywhere');
-    return null;
-  };
-
   // Fetch user's jars
-  const fetchJars = async () => {
-    try {
-      setError(null);
-      const token = getAuthToken();
-      if (!token) {
-        setError('No authentication token found. Please log in again.');
+  const fetchJars = async (showRefreshing = false) => {
+  try {
+    if (showRefreshing) setRefreshing(true);
+    setError(null);
+    
+    const token = getAuthToken();
+    if (!token) return;
+
+    console.log('Fetching jars...'); // Debug log
+
+    const response = await fetch('http://localhost:8080/api/jars', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Response status:', response.status);
+
+    if (response.ok) {
+      // Get response as text first to handle Jackson circular reference issues
+      let responseText = await response.text();
+      console.log('Response length:', responseText.length);
+      
+      // Check if response is empty
+      if (!responseText || responseText.trim() === '') {
+        console.log('Empty response received');
+        setJars([]);
         return;
       }
 
-      const response = await fetch('http://localhost:8080/api/jars', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Fetched jars:', data);
-        setJars(data);
+      // If the response is too large (indicating circular reference), extract data manually
+      if (responseText.length > 50000) {
+        console.warn('Response too large, extracting jar data manually...');
         
-        // Set current user ID if we haven't already
-        if (!currentUserId) {
-          const userId = getCurrentUserId();
-          setCurrentUserId(userId);
+        try {
+          // Extract jar data using multiple regex patterns to be more flexible
+          const extractedJars = [];
+          
+          // Pattern 1: Look for jar objects with id, title, targetAmount, savedAmount
+          const jarPattern1 = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
+          let match;
+          
+          while ((match = jarPattern1.exec(responseText)) !== null) {
+            const jarId = parseInt(match[1]);
+            // Check if we already have this jar
+            if (!extractedJars.find(jar => jar.id === jarId)) {
+              extractedJars.push({
+                id: jarId,
+                title: match[2],
+                targetAmount: parseFloat(match[3]) || 0,
+                savedAmount: parseFloat(match[4]) || 0
+              });
+            }
+          }
+          
+          // Pattern 2: Alternative field names (goal_amount, current_amount, etc.)
+          if (extractedJars.length === 0) {
+            const jarPattern2 = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name|jarName)"\s*:\s*"([^"]*)"[^}]*?"(?:targetAmount|goalAmount|target_amount|goal_amount)"\s*:\s*([\d.]+)[^}]*?"(?:savedAmount|currentAmount|saved_amount|current_amount)"\s*:\s*([\d.]+)/g;
+            
+            while ((match = jarPattern2.exec(responseText)) !== null) {
+              const jarId = parseInt(match[1]);
+              if (!extractedJars.find(jar => jar.id === jarId)) {
+                extractedJars.push({
+                  id: jarId,
+                  title: match[2],
+                  targetAmount: parseFloat(match[3]) || 0,
+                  savedAmount: parseFloat(match[4]) || 0
+                });
+              }
+            }
+          }
+          
+          // Pattern 3: Just extract basic jar info if other patterns fail
+          if (extractedJars.length === 0) {
+            const basicPattern = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name)"\s*:\s*"([^"]*)"/g;
+            
+            while ((match = basicPattern.exec(responseText)) !== null) {
+              const jarId = parseInt(match[1]);
+              if (!extractedJars.find(jar => jar.id === jarId)) {
+                extractedJars.push({
+                  id: jarId,
+                  title: match[2],
+                  targetAmount: 0,
+                  savedAmount: 0
+                });
+              }
+            }
+          }
+          
+          if (extractedJars.length > 0) {
+            console.log('Successfully extracted jars manually:', extractedJars);
+            setJars(extractedJars);
+            return;
+          } else {
+            setError('Could not extract jar data from response. Your backend has a circular reference issue that needs to be fixed.');
+            return;
+          }
+          
+        } catch (extractionError) {
+          console.error('Manual extraction failed:', extractionError);
+          setError('Backend returned circular reference data. Manual extraction also failed. Please restart your backend server.');
+          return;
         }
-      } else if (response.status === 401) {
-        setError('Authentication expired. Please log in again.');
-      } else {
-        setError(`Server responded with status: ${response.status}`);
       }
-    } catch (err) {
-      console.error('Error fetching jars:', err);
-      setError('Unable to connect to server. Please make sure the backend is running on localhost:8080');
-    } finally {
-      setLoading(false);
-    }
-  };
 
+      // For normal sized responses, try regular JSON parsing
+      try {
+        // Clean up common JSON issues
+        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
+        
+        // Try to parse the JSON
+        const data = JSON.parse(responseText);
+        console.log('Successfully parsed jars:', data);
+        
+        // Ensure it's an array and clean the data
+        if (Array.isArray(data)) {
+          // Clean each jar object to remove potential circular references
+          const cleanedJars = data.map(jar => ({
+            id: jar.id,
+            title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
+            targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
+            savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
+            // Don't include nested objects that might cause issues
+          }));
+          
+          setJars(cleanedJars);
+        } else {
+          setJars([]);
+        }
+        
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError);
+        setError('Failed to parse jar data. This appears to be a circular reference issue in your backend.');
+      }
+    } else if (response.status === 401) {
+      setError('Session expired. Please log in again.');
+      localStorage.removeItem('authToken');
+    } else if (response.status === 500) {
+      setError('Backend server error. This is likely a Jackson circular reference issue. Please check your backend logs.');
+    } else {
+      const errorText = await response.text();
+      console.error('HTTP error response:', errorText);
+      setError(`Failed to fetch jars: ${response.status} - ${errorText}`);
+    }
+  } catch (err) {
+    console.error('Network error fetching jars:', err);
+    setError('Unable to connect to server. Please check if the backend is running on localhost:8080');
+  } finally {
+    setLoading(false);
+    if (showRefreshing) setRefreshing(false);
+  }
+};
   // Fetch deposits for a specific jar
   const fetchDeposits = async (jarId) => {
-    try {
-      const token = getAuthToken();
-      if (!token) {
-        console.error('No auth token found');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Fetched deposits:', data);
-        setDeposits(data);
-      } else {
-        console.error(`Failed to fetch deposits: ${response.status} ${response.statusText}`);
-      }
-    } catch (err) {
-      console.error('Error fetching deposits:', err);
-    }
-  };
-
-  // Add deposit function - fixed with proper user ID handling
-  const addDeposit = async () => {
-    setDepositError('');
-    
-    if (!depositAmount || !selectedJar) {
-      setDepositError('Deposit amount or selected jar is missing.');
-      return;
-    }
-
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setDepositError('Please enter a valid amount greater than 0.');
-      return;
-    }
-
+  try {
     const token = getAuthToken();
-    if (!token) {
-      setDepositError('Authentication token not found. Please log in again.');
-      return;
-    }
-    
-    console.log('Starting deposit process...');
-    setDepositLoading(true);
+    if (!token) return;
 
-    try {
-      // Get user ID using the improved method
-      const userId = getNumericUserId();
+    const response = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      // Handle deposits response similar to jars
+      let responseText = await response.text();
+      console.log('Deposits response length:', responseText.length);
       
-      if (!userId) {
-        setDepositError('Unable to determine user ID. Please log out and log in again.');
+      if (!responseText || responseText.trim() === '') {
+        setDeposits([]);
         return;
       }
 
-      console.log(`Making deposit request for jar ${selectedJar.id} and user ${userId}`);
-      
-      const depositData = {
-        amount: amount,
-        date: new Date().toISOString(),
-        jarId: selectedJar.id,
-        userId: userId
-      };
-      
-      console.log('Deposit data being sent:', depositData);
-      
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}/user/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(depositData)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Deposit added successfully!', result);
-        setDepositAmount('');
-        setDepositError('');
+      // If response is too large (circular reference), extract manually
+      if (responseText.length > 50000) {
+        console.warn('Deposits response too large, extracting manually...');
         
-        // Refresh data
-        await fetchDeposits(selectedJar.id);
-        await fetchJars();
-      } else {
-        const errorText = await response.text();
-        console.error(`Failed to add deposit: ${response.status} ${response.statusText}`, errorText);
-        
-        if (response.status === 401) {
-          setDepositError('Authentication expired. Please log out and log in again.');
-        } else if (response.status === 403) {
-          setDepositError('You do not have permission to add deposits to this jar.');
-        } else if (response.status === 400) {
-          setDepositError(`Invalid request: ${errorText}. Please check your input and try again.`);
-        } else if (response.status === 404) {
-          setDepositError('Jar or user not found. Please refresh the page and try again.');
-        } else {
-          setDepositError(`Failed to add deposit: Server error (${response.status}). ${errorText}`);
+        try {
+          const extractedDeposits = [];
+          // Pattern for deposits: id, amount, date
+          const depositPattern = /"id"\s*:\s*(\d+)[^}]*?"amount"\s*:\s*([\d.]+)[^}]*?"(?:date|timestamp|createdAt)"\s*:\s*"([^"]*)"/g;
+          let match;
+          
+          while ((match = depositPattern.exec(responseText)) !== null) {
+            const depositId = parseInt(match[1]);
+            if (!extractedDeposits.find(dep => dep.id === depositId)) {
+              extractedDeposits.push({
+                id: depositId,
+                amount: parseFloat(match[2]) || 0,
+                date: match[3]
+              });
+            }
+          }
+          
+          console.log('Extracted deposits manually:', extractedDeposits);
+          setDeposits(extractedDeposits);
+          return;
+        } catch (extractionError) {
+          console.error('Failed to extract deposits:', extractionError);
+          setDeposits([]);
+          return;
         }
       }
-    } catch (err) {
-      console.error('Error adding deposit:', err);
-      setDepositError('Network error. Please check your connection and try again.');
-    } finally {
-      setDepositLoading(false);
-    }
-  };
 
+      // Normal JSON parsing for smaller responses
+      try {
+        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
+     
+        
+        const data = JSON.parse(responseText);
+        console.log('Fetched deposits:', data);
+        setDeposits(Array.isArray(data) ? data : []);
+      } catch (jsonError) {
+        console.error('Error parsing deposits JSON:', jsonError);
+        setDeposits([]);
+      }
+    } else {
+      console.error('Failed to fetch deposits:', response.status);
+      setDeposits([]);
+    }
+  } catch (err) {
+    console.error('Error fetching deposits:', err);
+    setDeposits([]);
+  }
+};
+
+
+useEffect(() => {
+  if (selectedJar && selectedJar.id) {
+    fetchDeposits(selectedJar.id);
+  }
+}, [selectedJar?.id]); // Only re-run when selectedJar.id changes
+  // Add deposit to jar
+  const addDeposit = async () => {
+  setDepositError('');
+  
+  if (!depositAmount || !selectedJar) {
+    setDepositError('Please enter a deposit amount.');
+    return;
+  }
+
+  const amount = parseFloat(depositAmount);
+  if (isNaN(amount) || amount <= 0) {
+    setDepositError('Please enter a valid amount greater than 0.');
+    return;
+  }
+
+  const token = getAuthToken();
+  if (!token) {
+    setDepositError('Authentication required. Please log in again.');
+    return;
+  }
+  
+  setDepositLoading(true);
+
+  try {
+    const depositData = {
+      amount: amount,
+      date: new Date().toISOString()
+    };
+    
+    console.log('Adding deposit:', depositData);
+    
+    const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(depositData)
+    });
+
+    if (response.ok) {
+      // Handle the response which might also have circular reference issues
+      let responseText = await response.text();
+      
+      // Replace the catch block in addDeposit function (around line 325) with this:
+
+      try {
+        // Try to parse response, but don't fail if it has issues
+        if (responseText && responseText.trim() !== '') {
+          const result = JSON.parse(responseText);
+          console.log('Deposit added successfully:', result);
+        } else {
+          console.log('Deposit added successfully (empty response)');
+        }
+      } catch (parseError) {
+        console.log('Deposit added successfully (response parsing failed, but HTTP 200):', parseError.message);
+      }
+      
+      // Clear form
+      setDepositAmount('');
+      setDepositError('');
+      
+      // Refresh data
+      await fetchDeposits(selectedJar.id);
+      await fetchJars();
+      
+      // Update selected jar with fresh data
+      const updatedJars = await fetchJarsData();
+      const updatedJar = updatedJars.find(jar => jar.id === selectedJar.id);
+      if (updatedJar) {
+        setSelectedJar(updatedJar);
+      }
+    } else {
+      const errorText = await response.text();
+      console.error('Failed to add deposit:', response.status, errorText);
+      
+      if (response.status === 401) {
+        setDepositError('Session expired. Please log out and log in again.');
+        localStorage.removeItem('authToken');
+      } else if (response.status === 403) {
+        setDepositError('You do not have permission to add deposits to this jar.');
+      } else if (response.status === 404) {
+        setDepositError('Jar not found. Please refresh the page and try again.');
+      } else {
+        setDepositError(`Failed to add deposit: ${errorText || 'Unknown error'}`);
+      }
+    }
+  } catch (err) {
+    console.error('Network error adding deposit:', err);
+    // Check if it's a JSON parsing error from a successful response
+    if (err.message.includes('JSON') && err.message.includes('position')) {
+      console.log('Deposit likely added successfully, but response has JSON issues');
+      setDepositAmount('');
+      setDepositError('');
+      await fetchDeposits(selectedJar.id);
+      await fetchJars();
+    } else {
+      setDepositError('Network error. Please check your connection and try again.');
+    }
+  } finally {
+    setDepositLoading(false);
+  }
+};
+
+  // Helper function to fetch jars data without setting state
+  const fetchJarsData = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) return [];
+
+    const response = await fetch('http://localhost:8080/api/jars', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      let responseText = await response.text();
+      
+      if (!responseText || responseText.trim() === '') {
+        return [];
+      }
+
+      // Handle large responses (circular references)
+      if (responseText.length > 50000) {
+        const extractedJars = [];
+        const jarPattern = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
+        let match;
+        
+        while ((match = jarPattern.exec(responseText)) !== null) {
+          const jarId = parseInt(match[1]);
+          if (!extractedJars.find(jar => jar.id === jarId)) {
+            extractedJars.push({
+              id: jarId,
+              title: match[2],
+              targetAmount: parseFloat(match[3]) || 0,
+              savedAmount: parseFloat(match[4]) || 0
+            });
+          }
+        }
+        
+        return extractedJars;
+      }
+
+      // Normal JSON parsing for smaller responses
+      try {
+        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
+       
+        
+        const data = JSON.parse(responseText);
+        
+        if (Array.isArray(data)) {
+          return data.map(jar => ({
+            id: jar.id,
+            title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
+            targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
+            savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
+          }));
+        }
+        return [];
+      } catch (jsonError) {
+        console.error('Error parsing jars data:', jsonError);
+        return [];
+      }
+    }
+    return [];
+  } catch (err) {
+    console.error('Error fetching jars data:', err);
+    return [];
+  }
+};
   // Delete deposit
   const deleteDeposit = async (depositId) => {
     try {
       const token = getAuthToken();
-      if (!token) {
-        console.error('No auth token found');
-        return;
-      }
+      if (!token) return;
 
       const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (response.ok) {
+        console.log('Deposit deleted successfully');
+        // Refresh data
         await fetchDeposits(selectedJar.id);
         await fetchJars();
+        
+        // Update selected jar with fresh data
+        const updatedJars = await fetchJarsData();
+        const updatedJar = updatedJars.find(jar => jar.id === selectedJar.id);
+        if (updatedJar) {
+          setSelectedJar(updatedJar);
+        }
       } else {
-        console.error(`Failed to delete deposit: ${response.status} ${response.statusText}`);
+        console.error('Failed to delete deposit:', response.status);
       }
     } catch (err) {
       console.error('Error deleting deposit:', err);
     }
+  };
+
+  // Utility function to get the correct field values from jar object
+  const getJarValues = (jar) => {
+    // Try different possible field names based on your backend response
+    const currentAmount = jar.savedAmount || jar.saved_amount || jar.currentAmount || jar.current_amount || 0;
+    const goalAmount = jar.targetAmount || jar.target_amount || jar.goalAmount || jar.goal_amount || 0;
+    const jarName = jar.title || jar.name || jar.jarName || jar.jar_name || 'Unnamed Jar';
+    
+    return { currentAmount, goalAmount, jarName };
+  };
+
+  // Format currency for Indian locale
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0
+    }).format(amount || 0);
   };
 
   useEffect(() => {
@@ -283,35 +519,46 @@ const ViewJars = ({ isDarkMode = false }) => {
     );
   }
 
-  // Show error message if server is not reachable
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center max-w-md px-4">
+        <div className="text-center max-w-2xl px-4">
           <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
             isDarkMode ? 'bg-red-900 text-red-400' : 'bg-red-100 text-red-600'
           }`}>
-            <PiggyBank className="w-8 h-8" />
+            <AlertCircle className="w-8 h-8" />
           </div>
           <h3 className={`text-xl font-semibold mb-2 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
             Connection Error
           </h3>
-          <p className={`text-sm mb-4 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          <div className={`text-sm mb-4 p-4 rounded-lg ${
+            isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'
           }`}>
-            {error}
-          </p>
-          <button
-            onClick={() => {
-              setLoading(true);
-              fetchJars();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
+            <p className="font-medium mb-2">Error Details:</p>
+            <p className="text-left">{error}</p>
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchJars();
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-2"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('authToken');
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Clear Session & Reload
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -319,32 +566,13 @@ const ViewJars = ({ isDarkMode = false }) => {
 
   // Jar Details View
   if (selectedJar) {
-    // Use the correct database field names
-    const currentAmount = selectedJar.saved_amount || selectedJar.current_amount || selectedJar.savedAmount || 0;
-    const goalAmount = selectedJar.target_amount || selectedJar.targetAmount || 0;
-    const jarName = selectedJar.title || selectedJar.name || 'Unnamed Jar';
+    const { currentAmount, goalAmount, jarName } = getJarValues(selectedJar);
     const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
     const remainingAmount = Math.max(0, goalAmount - currentAmount);
-    
-    // Format numbers properly
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('en-IN', {
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 0
-      }).format(amount || 0);
-    };
-
-    console.log('Jar details:', {
-      currentAmount,
-      goalAmount,
-      progress,
-      remainingAmount,
-      selectedJar
-    });
 
     return (
       <div className="h-full flex flex-col">
-        {/* Header with Jar Name prominently displayed */}
+        {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${
           isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
         }`}>
@@ -369,11 +597,20 @@ const ViewJars = ({ isDarkMode = false }) => {
               </div>
             </div>
           </div>
+          <button
+            onClick={() => fetchJars(true)}
+            disabled={refreshing}
+            className={`p-2 rounded-lg transition-colors ${
+              isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
+            } ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+          </button>
         </div>
 
         <div className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Jar Stats - Enhanced with better visibility */}
+            {/* Jar Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
                 <div className="flex items-center space-x-3">
@@ -424,7 +661,7 @@ const ViewJars = ({ isDarkMode = false }) => {
               </div>
             </div>
 
-            {/* Enhanced Progress Bar */}
+            {/* Progress Bar */}
             <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <div className="mb-6">
                 <div className="flex justify-between items-center text-sm mb-3">
@@ -460,37 +697,15 @@ const ViewJars = ({ isDarkMode = false }) => {
                 Add Deposit to "{jarName}"
               </h3>
               
-              {/* Debug Info */}
-              <div className={`mb-4 p-3 rounded-lg text-xs ${
-                isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-              }`}>
-                <p>Debug: Current User ID: {getCurrentUserId() || 'Not found'}</p>
-                <p>Debug: Jar ID: {selectedJar.id}</p>
-              </div>
-              
-              {/* Error Message */}
               {depositError && (
                 <div className={`mb-4 p-3 rounded-lg flex items-start space-x-2 ${
                   isDarkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
                 }`}>
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <pre className={`text-sm whitespace-pre-wrap ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    <p className={`text-sm ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
                       {depositError}
-                    </pre>
-                    {depositError.includes('log out and log in again') && (
-                      <div className="mt-2">
-                        <button
-                          onClick={() => {
-                            localStorage.clear();
-                            window.location.reload();
-                          }}
-                          className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                        >
-                          Clear Session & Reload
-                        </button>
-                      </div>
-                    )}
+                    </p>
                   </div>
                 </div>
               )}
@@ -500,7 +715,9 @@ const ViewJars = ({ isDarkMode = false }) => {
                   type="number"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  placeholder="Enter amount (₹)"
+                  step="0.01"
+                  min="0"
                   className={`flex-1 px-4 py-2 rounded-lg border ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -510,14 +727,14 @@ const ViewJars = ({ isDarkMode = false }) => {
                 <button
                   onClick={addDeposit}
                   disabled={!depositAmount || depositLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
                 >
                   {depositLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <Plus size={16} />
                   )}
-                  <span>Add</span>
+                  <span>{depositLoading ? 'Adding...' : 'Add Deposit'}</span>
                 </button>
               </div>
             </div>
@@ -525,7 +742,7 @@ const ViewJars = ({ isDarkMode = false }) => {
             {/* Recent Deposits */}
             <div className={`p-6 rounded-xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} shadow-sm`}>
               <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Recent Deposits - "{jarName}"
+                Recent Deposits
               </h3>
               {deposits.length === 0 ? (
                 <p className={`text-center py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -533,7 +750,10 @@ const ViewJars = ({ isDarkMode = false }) => {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {deposits.slice(0, 5).map((deposit) => (
+                  {deposits
+                    .sort((a, b) => new Date(b.date || b.timestamp) - new Date(a.date || a.timestamp))
+                    .slice(0, 10)
+                    .map((deposit) => (
                     <div key={deposit.id} className={`flex items-center justify-between p-4 rounded-lg ${
                       isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
                     }`}>
@@ -544,7 +764,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                             ₹{formatCurrency(deposit.amount)}
                           </p>
                           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {new Date(deposit.date || deposit.timestamp).toLocaleDateString()}
+                            {new Date(deposit.date || deposit.timestamp).toLocaleDateString('en-IN')}
                           </p>
                         </div>
                       </div>
@@ -555,6 +775,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                             ? 'hover:bg-gray-600 text-gray-400 hover:text-red-400' 
                             : 'hover:bg-gray-200 text-gray-600 hover:text-red-600'
                         }`}
+                        title="Delete deposit"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -569,13 +790,24 @@ const ViewJars = ({ isDarkMode = false }) => {
     );
   }
 
-  // Jars List View - Enhanced with better visibility
+  // Jars List View
   return (
     <div className="h-full flex flex-col">
       <div className="p-6">
-        <h2 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          My Savings Jars
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            My Savings Jars
+          </h2>
+          <button
+            onClick={() => fetchJars(true)}
+            disabled={refreshing}
+            className={`p-2 rounded-lg transition-colors ${
+              isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
+            } ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
 
         {jars.length === 0 ? (
           <div className="text-center py-12">
@@ -590,17 +822,8 @@ const ViewJars = ({ isDarkMode = false }) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
-              // Use correct database field names
-              const currentAmount = jar.saved_amount || jar.current_amount || jar.savedAmount || 0;
-              const goalAmount = jar.target_amount || jar.targetAmount || 0;
+              const { currentAmount, goalAmount, jarName } = getJarValues(jar);
               const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
-              
-              const formatCurrency = (amount) => {
-                return new Intl.NumberFormat('en-IN', {
-                  maximumFractionDigits: 2,
-                  minimumFractionDigits: 0
-                }).format(amount || 0);
-              };
               
               return (
                 <div
@@ -614,7 +837,7 @@ const ViewJars = ({ isDarkMode = false }) => {
                     <div className="flex items-center space-x-3">
                       <PiggyBank className="w-6 h-6 text-blue-600" />
                       <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {jar.title || jar.name}
+                        {jarName}
                       </h3>
                     </div>
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${
