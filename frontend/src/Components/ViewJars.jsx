@@ -10,7 +10,10 @@ import {
   Target,
   Activity,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  MoreVertical,
+  Edit3,
+  AlertTriangle
 } from 'lucide-react';
 
 const ViewJars = ({ isDarkMode = false }) => {
@@ -23,6 +26,13 @@ const ViewJars = ({ isDarkMode = false }) => {
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  
+  // New state for jar deletion
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [jarToDelete, setJarToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
 
   const hasFetchedJars = useRef(false);
 
@@ -34,6 +44,212 @@ const ViewJars = ({ isDarkMode = false }) => {
       return null;
     }
     return token;
+  };
+
+  // Delete jar function
+  // ...existing code...
+
+// Delete jar function with deposits cleanup
+// ...existing code...
+
+// Delete jar function with improved error handling
+const deleteJar = async (jarId) => {
+  setDeleteLoading(true);
+  setDeleteError('');
+
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      setDeleteError('Authentication required. Please log in again.');
+      return;
+    }
+
+    console.log('Deleting jar:', jarId);
+
+    // Step 1: First fetch and delete all deposits for this jar
+    try {
+      console.log('Fetching deposits to delete for jar:', jarId);
+      const depositsResponse = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (depositsResponse.ok) {
+        let depositsText = await depositsResponse.text();
+        
+        if (depositsText && depositsText.trim() !== '') {
+          try {
+            // Handle potential circular reference issues in deposits response
+            let depositsToDelete = [];
+            
+            // Try normal JSON parsing first
+            try {
+              const depositsData = JSON.parse(depositsText);
+              if (Array.isArray(depositsData)) {
+                depositsToDelete = depositsData;
+              }
+            } catch {
+              // If JSON parsing fails, try manual extraction
+              console.warn('JSON parsing failed, extracting deposit IDs manually');
+              const depositIdPattern = /"id"\s*:\s*(\d+)/g;
+              let match;
+              const extractedIds = [];
+              
+              while ((match = depositIdPattern.exec(depositsText)) !== null) {
+                const depositId = parseInt(match[1]);
+                if (!extractedIds.includes(depositId)) {
+                  extractedIds.push(depositId);
+                  depositsToDelete.push({ id: depositId });
+                }
+              }
+            }
+            
+            if (depositsToDelete.length > 0) {
+              console.log(`Found ${depositsToDelete.length} deposits to delete first`);
+              
+              // Delete each deposit
+              for (const deposit of depositsToDelete) {
+                try {
+                  console.log(`Deleting deposit ${deposit.id}`);
+                  const deleteDepositResponse = await fetch(`http://localhost:8080/api/deposits/${deposit.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (deleteDepositResponse.ok) {
+                    console.log(`Successfully deleted deposit ${deposit.id}`);
+                  } else {
+                    console.warn(`Failed to delete deposit ${deposit.id}:`, deleteDepositResponse.status);
+                  }
+                } catch (depositError) {
+                  console.warn(`Error deleting deposit ${deposit.id}:`, depositError);
+                }
+              }
+              
+              console.log('All deposits cleanup completed, now deleting jar');
+              
+              // Add a small delay to ensure database transactions are committed
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } else {
+              console.log('No deposits found for this jar');
+            }
+          } catch (parseError) {
+            console.warn('Could not parse deposits, proceeding with jar deletion:', parseError);
+          }
+        } else {
+          console.log('Empty deposits response, no deposits to delete');
+        }
+      } else {
+        console.warn('Failed to fetch deposits for cleanup:', depositsResponse.status);
+        // Continue with jar deletion anyway
+      }
+    } catch (depositsError) {
+      console.warn('Error during deposits cleanup:', depositsError);
+      // Continue with jar deletion anyway
+    }
+
+    // Step 2: Now delete the jar
+    console.log('Now attempting to delete the jar...');
+    const response = await fetch(`http://localhost:8080/api/jars/${jarId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Delete jar response status:', response.status);
+
+    if (response.ok) {
+      console.log('Jar deleted successfully');
+      
+      // Remove jar from local state
+      setJars(prev => prev.filter(jar => jar.id !== jarId));
+      
+      // If we're viewing the deleted jar, go back to list
+      if (selectedJar && selectedJar.id === jarId) {
+        setSelectedJar(null);
+      }
+      
+      // Close modal
+      setShowDeleteModal(false);
+      setJarToDelete(null);
+      setDeleteConfirmInput('');
+      
+    } else {
+      // Read the error response only once
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (textError) {
+        console.warn('Could not read error response:', textError);
+        errorText = 'Unknown error';
+      }
+      
+      console.error('Failed to delete jar:', response.status, errorText);
+      
+      if (response.status === 401) {
+        setDeleteError('Session expired. Please log out and log in again.');
+        localStorage.removeItem('authToken');
+      } else if (response.status === 403) {
+        setDeleteError('You do not have permission to delete this jar.');
+      } else if (response.status === 404) {
+        setDeleteError('Jar not found. It may have already been deleted.');
+        // Remove from local state anyway
+        setJars(prev => prev.filter(jar => jar.id !== jarId));
+        setShowDeleteModal(false);
+        setJarToDelete(null);
+        setDeleteConfirmInput('');
+      } else if (response.status === 500) {
+        if (errorText.includes('ConstraintViolationException') || errorText.includes('DataIntegrityViolationException')) {
+          setDeleteError('Database constraint error: There may be hidden references to this jar. This requires backend database cleanup. Please contact your system administrator.');
+        } else {
+          setDeleteError('Backend server error. Please try again or contact support.');
+        }
+      } else {
+        setDeleteError(`Failed to delete jar: ${errorText || 'Unknown error'}`);
+      }
+    }
+  } catch (err) {
+    console.error('Network error deleting jar:', err);
+    setDeleteError('Network error. Please check your connection and try again.');
+  } finally {
+    setDeleteLoading(false);
+  }
+};
+
+// ...existing code...
+
+// ...existing code...
+
+  // Handle delete jar button click
+  const handleDeleteJarClick = (jar, event) => {
+    event.stopPropagation(); // Prevent jar selection
+    setJarToDelete(jar);
+    setShowDeleteModal(true);
+    setDeleteError('');
+    setDeleteConfirmInput('');
+  };
+
+  // Confirm jar deletion
+  const confirmDeleteJar = () => {
+    if (jarToDelete && deleteConfirmInput.toUpperCase() === 'DELETE') {
+      deleteJar(jarToDelete.id);
+    }
+  };
+
+  // Cancel jar deletion
+  const cancelDeleteJar = () => {
+    setShowDeleteModal(false);
+    setJarToDelete(null);
+    setDeleteError('');
+    setDeleteConfirmInput('');
   };
 
   // Fetch user's jars
@@ -194,257 +410,257 @@ const ViewJars = ({ isDarkMode = false }) => {
 
   // Fetch deposits for a specific jar
   const fetchDeposits = async (jarId) => {
-  console.log('Fetching deposits for jar:', jarId); // Debug log
-  
-  try {
-    const token = getAuthToken();
-    if (!token) return;
+    console.log('Fetching deposits for jar:', jarId);
+    
+    try {
+      const token = getAuthToken();
+      if (!token) return;
 
-    const response = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+      const response = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    console.log('Deposits response status:', response.status); // Debug log
+      console.log('Deposits response status:', response.status);
 
-    if (response.ok) {
-      // Handle deposits response similar to jars
-      let responseText = await response.text();
-      console.log('Deposits response length:', responseText.length);
-      console.log('Raw deposits response:', responseText.substring(0, 500)); // Debug log
-      
-      if (!responseText || responseText.trim() === '') {
-        console.log('Empty deposits response');
-        setDeposits([]);
-        return;
-      }
-
-      // If response is too large (circular reference), extract manually
-      if (responseText.length > 50000) {
-        console.warn('Deposits response too large, extracting manually...');
+      if (response.ok) {
+        // Handle deposits response similar to jars
+        let responseText = await response.text();
+        console.log('Deposits response length:', responseText.length);
         
-        try {
-          const extractedDeposits = [];
-          // Pattern for deposits: id, amount, date
-          const depositPattern = /"id"\s*:\s*(\d+)[^}]*?"amount"\s*:\s*([\d.]+)[^}]*?"(?:date|timestamp|createdAt)"\s*:\s*"([^"]*)"/g;
-          let match;
+        if (!responseText || responseText.trim() === '') {
+          console.log('Empty deposits response');
+          setDeposits([]);
+          return;
+        }
+
+        // If response is too large (circular reference), extract manually
+        if (responseText.length > 50000) {
+          console.warn('Deposits response too large, extracting manually...');
           
-          while ((match = depositPattern.exec(responseText)) !== null) {
-            const depositId = parseInt(match[1]);
-            if (!extractedDeposits.find(dep => dep.id === depositId)) {
-              extractedDeposits.push({
-                id: depositId,
-                amount: parseFloat(match[2]) || 0,
-                date: match[3]
-              });
+          try {
+            const extractedDeposits = [];
+            // Pattern for deposits: id, amount, date
+            const depositPattern = /"id"\s*:\s*(\d+)[^}]*?"amount"\s*:\s*([\d.]+)[^}]*?"(?:date|timestamp|createdAt)"\s*:\s*"([^"]*)"/g;
+            let match;
+            
+            while ((match = depositPattern.exec(responseText)) !== null) {
+              const depositId = parseInt(match[1]);
+              if (!extractedDeposits.find(dep => dep.id === depositId)) {
+                extractedDeposits.push({
+                  id: depositId,
+                  amount: parseFloat(match[2]) || 0,
+                  date: match[3]
+                });
+              }
             }
+            
+            console.log('Extracted deposits manually:', extractedDeposits);
+            setDeposits(extractedDeposits);
+            return;
+          } catch (extractionError) {
+            console.error('Failed to extract deposits:', extractionError);
+            setDeposits([]);
+            return;
           }
-          
-          console.log('Extracted deposits manually:', extractedDeposits);
-          setDeposits(extractedDeposits);
-          return;
-        } catch (extractionError) {
-          console.error('Failed to extract deposits:', extractionError);
-          setDeposits([]);
-          return;
         }
-      }
 
-      // Normal JSON parsing for smaller responses
-      try {
-        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-        
-        const data = JSON.parse(responseText);
-        console.log('Fetched deposits successfully:', data);
-        
-        if (Array.isArray(data)) {
-          setDeposits(data);
-        } else {
-          console.log('Deposits data is not an array:', data);
+        // Normal JSON parsing for smaller responses
+        try {
+          responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
+          
+          const data = JSON.parse(responseText);
+          console.log('Fetched deposits successfully:', data);
+          
+          if (Array.isArray(data)) {
+            setDeposits(data);
+          } else {
+            console.log('Deposits data is not an array:', data);
+            setDeposits([]);
+          }
+        } catch (jsonError) {
+          console.error('Error parsing deposits JSON:', jsonError);
           setDeposits([]);
         }
-      } catch (jsonError) {
-        console.error('Error parsing deposits JSON:', jsonError);
+      } else {
+        console.error('Failed to fetch deposits:', response.status);
         setDeposits([]);
       }
-    } else {
-      console.error('Failed to fetch deposits:', response.status);
+    } catch (err) {
+      console.error('Error fetching deposits:', err);
       setDeposits([]);
     }
-  } catch (err) {
-    console.error('Error fetching deposits:', err);
-    setDeposits([]);
-  }
-};
+  };
 
   useEffect(() => {
-  if (!hasFetchedJars.current) {
-    hasFetchedJars.current = true;
-    fetchJars();
-  }
-}, []);
+    if (!hasFetchedJars.current) {
+      hasFetchedJars.current = true;
+      fetchJars();
+    }
+  }, []);
 
-useEffect(() => {
-  if (selectedJar && selectedJar.id) {
-    console.log('Selected jar changed, fetching deposits for jar:', selectedJar.id);
-    fetchDeposits(selectedJar.id);
-  }
-}, [selectedJar?.id]);
+  useEffect(() => {
+    if (selectedJar && selectedJar.id) {
+      console.log('Selected jar changed, fetching deposits for jar:', selectedJar.id);
+      fetchDeposits(selectedJar.id);
+    }
+  }, [selectedJar?.id]);
 
   // Add deposit to jar
   const addDeposit = async () => {
-  setDepositError('');
-  
-  if (!depositAmount || !selectedJar) {
-    setDepositError('Please enter a deposit amount.');
-    return;
-  }
-
-  const amount = parseFloat(depositAmount);
-  if (isNaN(amount) || amount <= 0) {
-    setDepositError('Please enter a valid amount greater than 0.');
-    return;
-  }
-
-  const token = getAuthToken();
-  if (!token) {
-    setDepositError('Authentication required. Please log in again.');
-    return;
-  }
-  
-  setDepositLoading(true);
-
-  try {
-    const depositData = {
-      amount: amount,
-      date: new Date().toISOString()
-    };
+    setDepositError('');
     
-    console.log('Adding deposit:', depositData);
-    
-    const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(depositData)
-    });
+    if (!depositAmount || !selectedJar) {
+      setDepositError('Please enter a deposit amount.');
+      return;
+    }
 
-    if (response.ok) {
-      // Handle the response which might also have circular reference issues
-      let responseText = await response.text();
+    const amount = parseFloat(depositAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setDepositError('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setDepositError('Authentication required. Please log in again.');
+      return;
+    }
+    
+    setDepositLoading(true);
+
+    try {
+      const depositData = {
+        amount: amount,
+        date: new Date().toISOString()
+      };
       
-      try {
-        // Try to parse response, but don't fail if it has issues
-        if (responseText && responseText.trim() !== '') {
-          const result = JSON.parse(responseText);
-          console.log('Deposit added successfully:', result);
-        } else {
-          console.log('Deposit added successfully (empty response)');
+      console.log('Adding deposit:', depositData);
+      
+      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(depositData)
+      });
+
+      if (response.ok) {
+        // Handle the response which might also have circular reference issues
+        let responseText = await response.text();
+        
+        try {
+          // Try to parse response, but don't fail if it has issues
+          if (responseText && responseText.trim() !== '') {
+            const result = JSON.parse(responseText);
+            console.log('Deposit added successfully:', result);
+          } else {
+            console.log('Deposit added successfully (empty response)');
+          }
+        } catch (parseError) {
+          console.log('Deposit added successfully (response parsing failed, but HTTP 200):', parseError.message);
         }
-      } catch (parseError) {
-        console.log('Deposit added successfully (response parsing failed, but HTTP 200):', parseError.message);
-      }
-      
-      // Clear form
-      setDepositAmount('');
-      setDepositError('');
-      
-      // Refresh deposits
-      await fetchDeposits(selectedJar.id);
-      
-      // Update selected jar locally
-      setSelectedJar(prev => ({
-        ...prev,
-        savedAmount: prev.savedAmount + amount
-      }));
-      
-      // Update the jar in the main jars list
-      setJars(prev => prev.map(jar => 
-        jar.id === selectedJar.id 
-          ? { ...jar, savedAmount: jar.savedAmount + amount }
-          : jar
-      ));
-    } else {
-      const errorText = await response.text();
-      console.error('Failed to add deposit:', response.status, errorText);
-      
-      if (response.status === 401) {
-        setDepositError('Session expired. Please log out and log in again.');
-        localStorage.removeItem('authToken');
-      } else if (response.status === 403) {
-        setDepositError('You do not have permission to add deposits to this jar.');
-      } else if (response.status === 404) {
-        setDepositError('Jar not found. Please refresh the page and try again.');
+        
+        // Clear form
+        setDepositAmount('');
+        setDepositError('');
+        
+        // Refresh deposits
+        await fetchDeposits(selectedJar.id);
+        
+        // Update selected jar locally
+        setSelectedJar(prev => ({
+          ...prev,
+          savedAmount: prev.savedAmount + amount
+        }));
+        
+        // Update the jar in the main jars list
+        setJars(prev => prev.map(jar => 
+          jar.id === selectedJar.id 
+            ? { ...jar, savedAmount: jar.savedAmount + amount }
+            : jar
+        ));
       } else {
-        setDepositError(`Failed to add deposit: ${errorText || 'Unknown error'}`);
+        const errorText = await response.text();
+        console.error('Failed to add deposit:', response.status, errorText);
+        
+        if (response.status === 401) {
+          setDepositError('Session expired. Please log out and log in again.');
+          localStorage.removeItem('authToken');
+        } else if (response.status === 403) {
+          setDepositError('You do not have permission to add deposits to this jar.');
+        } else if (response.status === 404) {
+          setDepositError('Jar not found. Please refresh the page and try again.');
+        } else {
+          setDepositError(`Failed to add deposit: ${errorText || 'Unknown error'}`);
+        }
       }
+    } catch (err) {
+      console.error('Network error adding deposit:', err);
+      // Check if it's a JSON parsing error from a successful response
+      if (err.message.includes('JSON') && err.message.includes('position')) {
+        console.log('Deposit likely added successfully, but response has JSON issues');
+        setDepositAmount('');
+        setDepositError('');
+        await fetchDeposits(selectedJar.id);
+      } else {
+        setDepositError('Network error. Please check your connection and try again.');
+      }
+    } finally {
+      setDepositLoading(false);
     }
-  } catch (err) {
-    console.error('Network error adding deposit:', err);
-    // Check if it's a JSON parsing error from a successful response
-    if (err.message.includes('JSON') && err.message.includes('position')) {
-      console.log('Deposit likely added successfully, but response has JSON issues');
-      setDepositAmount('');
-      setDepositError('');
-      await fetchDeposits(selectedJar.id);
-    } else {
-      setDepositError('Network error. Please check your connection and try again.');
-    }
-  } finally {
-    setDepositLoading(false);
-  }
-};
+  };
 
   // Delete deposit
   const deleteDeposit = async (depositId) => {
-  try {
-    const token = getAuthToken();
-    if (!token) return;
+    try {
+      const token = getAuthToken();
+      if (!token) return;
 
-    const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+      const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (response.ok) {
-      console.log('Deposit deleted successfully');
-      
-      // Find the deleted deposit to get its amount
-      const deletedDeposit = deposits.find(d => d.id === depositId);
-      if (deletedDeposit) {
-        const deletedAmount = deletedDeposit.amount;
+      if (response.ok) {
+        console.log('Deposit deleted successfully');
         
-        // Update selected jar
-        setSelectedJar(prev => ({
-          ...prev,
-          savedAmount: prev.savedAmount - deletedAmount
-        }));
+        // Find the deleted deposit to get its amount
+        const deletedDeposit = deposits.find(d => d.id === depositId);
+        if (deletedDeposit) {
+          const deletedAmount = deletedDeposit.amount;
+          
+          // Update selected jar
+          setSelectedJar(prev => ({
+            ...prev,
+            savedAmount: prev.savedAmount - deletedAmount
+          }));
+          
+          // Update jars list
+          setJars(prev => prev.map(jar => 
+            jar.id === selectedJar.id 
+              ? { ...jar, savedAmount: jar.savedAmount - deletedAmount }
+              : jar
+          ));
+        }
         
-        // Update jars list
-        setJars(prev => prev.map(jar => 
-          jar.id === selectedJar.id 
-            ? { ...jar, savedAmount: jar.savedAmount - deletedAmount }
-            : jar
-        ));
+        // Refresh deposits list
+        await fetchDeposits(selectedJar.id);
+      } else {
+        console.error('Failed to delete deposit:', response.status);
       }
-      
-      // Refresh deposits list
-      await fetchDeposits(selectedJar.id);
-    } else {
-      console.error('Failed to delete deposit:', response.status);
+    } catch (err) {
+      console.error('Error deleting deposit:', err);
     }
-  } catch (err) {
-    console.error('Error deleting deposit:', err);
-  }
-};
+  };
+
   // Utility function to get the correct field values from jar object
   const getJarValues = (jar) => {
     // Try different possible field names based on your backend response
@@ -461,6 +677,173 @@ useEffect(() => {
       maximumFractionDigits: 2,
       minimumFractionDigits: 0
     }).format(amount || 0);
+  };
+
+  // Delete Confirmation Modal Component
+  const DeleteJarModal = () => {
+    if (!showDeleteModal || !jarToDelete) return null;
+
+    const { currentAmount, goalAmount, jarName } = getJarValues(jarToDelete);
+    const canDelete = deleteConfirmInput.toUpperCase() === 'DELETE';
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <div 
+          className="absolute inset-0 bg-black/50"
+          onClick={!deleteLoading ? cancelDeleteJar : undefined}
+        />
+        
+        {/* Modal */}
+        <div className={`relative w-full max-w-md mx-auto rounded-2xl shadow-2xl ${
+          isDarkMode 
+            ? 'bg-gray-800 border border-gray-700' 
+            : 'bg-white border border-gray-200'
+        }`}>
+          {/* Header */}
+          <div className="p-6 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-full bg-red-100">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className={`text-lg font-semibold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Delete Jar
+                  </h3>
+                  <p className={`text-sm ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+              {!deleteLoading && (
+                <button
+                  onClick={cancelDeleteJar}
+                  className={`p-1 rounded-full transition-colors ${
+                    isDarkMode 
+                      ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="text-lg">✕</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="px-6 pb-4">
+            {/* Jar Info */}
+            <div className={`p-4 rounded-lg mb-4 ${
+              isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+            }`}>
+              <div className="flex items-center space-x-3">
+                <PiggyBank className="w-8 h-8 text-blue-600" />
+                <div>
+                  <p className={`font-semibold ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {jarName}
+                  </p>
+                  <p className={`text-sm ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    ₹{formatCurrency(currentAmount)} of ₹{formatCurrency(goalAmount)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Warning Message */}
+            <div className={`p-3 rounded-lg mb-4 ${
+              isDarkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
+            }`}>
+              <p className={`text-sm ${
+                isDarkMode ? 'text-red-400' : 'text-red-600'
+              }`}>
+                <strong>Warning:</strong> Deleting this jar will permanently remove:
+              </p>
+              <ul className={`text-sm mt-2 space-y-1 ${
+                isDarkMode ? 'text-red-400' : 'text-red-600'
+              }`}>
+                <li>• The jar and its ₹{formatCurrency(currentAmount)} savings</li>
+                <li>• All deposit history ({deposits.length} deposits)</li>
+                <li>• This action cannot be undone</li>
+              </ul>
+            </div>
+
+            {/* Error Message */}
+            {deleteError && (
+              <div className={`p-3 rounded-lg mb-4 flex items-start space-x-2 ${
+                isDarkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'
+              }`}>
+                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <p className={`text-sm ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
+                  {deleteError}
+                </p>
+              </div>
+            )}
+
+            {/* Confirmation Input */}
+            <div className="mb-6">
+              <p className={`text-sm mb-2 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Type <strong>DELETE</strong> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder="Type DELETE"
+                disabled={deleteLoading}
+                className={`w-full px-3 py-2 rounded-lg border ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900'
+                } focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50`}
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex space-x-3 p-6 pt-0">
+            <button
+              onClick={cancelDeleteJar}
+              disabled={deleteLoading}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                isDarkMode 
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              } disabled:opacity-50`}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDeleteJar}
+              disabled={deleteLoading || !canDelete}
+              className="flex-1 py-3 px-4 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 flex items-center justify-center space-x-2 transition-colors"
+            >
+              {deleteLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 size={16} />
+                  <span>Delete Jar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -529,6 +912,9 @@ useEffect(() => {
 
     return (
       <div className="h-full flex flex-col">
+        {/* Delete Modal */}
+        <DeleteJarModal />
+
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${
           isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
@@ -554,15 +940,28 @@ useEffect(() => {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => fetchJars(true)}
-            disabled={refreshing}
-            className={`p-2 rounded-lg transition-colors ${
-              isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
-            } ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => fetchJars(true)}
+              disabled={refreshing}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
+              } ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={(e) => handleDeleteJarClick(selectedJar, e)}
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'hover:bg-red-900 text-gray-400 hover:text-red-400' 
+                  : 'hover:bg-red-100 text-gray-600 hover:text-red-600'
+              }`}
+              title="Delete jar"
+            >
+              <Trash2 size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto p-6">
@@ -750,6 +1149,9 @@ useEffect(() => {
   // Jars List View
   return (
     <div className="h-full flex flex-col">
+      {/* Delete Modal */}
+      <DeleteJarModal />
+
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -785,11 +1187,24 @@ useEffect(() => {
               return (
                 <div
                   key={jar.id}
-                  onClick={() => setSelectedJar(jar)}
-                  className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 ${
+                  className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 relative group ${
                     isDarkMode ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' : 'bg-white hover:shadow-lg border border-gray-200'
                   } shadow-sm`}
+                  onClick={() => setSelectedJar(jar)}
                 >
+                  {/* Delete Button - Shows on hover */}
+                  <button
+                    onClick={(e) => handleDeleteJarClick(jar, e)}
+                    className={`absolute top-3 right-3 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white' 
+                        : 'bg-gray-100 hover:bg-red-500 text-gray-600 hover:text-white'
+                    }`}
+                    title="Delete jar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <PiggyBank className="w-6 h-6 text-blue-600" />

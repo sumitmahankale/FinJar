@@ -2,7 +2,7 @@ package com.model;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonBackReference; // ADD THIS IMPORT
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
 public class Deposite {
@@ -15,11 +15,12 @@ public class Deposite {
 
     private LocalDateTime timestamp;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "jar_id")
-    @JsonBackReference("jar-deposits") // ADD THIS
+    @JsonBackReference("jar-deposits")
     private Jar jar;
 
+    // Constructors - SAME AS BEFORE
     public Deposite() {}
 
     public Deposite(double amount, LocalDateTime timestamp, Jar jar) {

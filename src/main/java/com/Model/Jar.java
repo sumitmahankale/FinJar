@@ -4,6 +4,7 @@ import java.util.List;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -11,8 +12,8 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 
-import com.fasterxml.jackson.annotation.JsonBackReference; // ADD THIS IMPORT
-import com.fasterxml.jackson.annotation.JsonManagedReference; // ADD THIS IMPORT
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Entity
 public class Jar {
@@ -27,13 +28,13 @@ public class Jar {
 
     private double savedAmount = 0.0;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    @JsonBackReference("user-jars") // CHANGE FROM @JsonIgnore TO THIS
+    @JsonBackReference("user-jars")
     private User user;
 
-    @OneToMany(mappedBy = "jar", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference("jar-deposits") // ADD THIS
+    @OneToMany(mappedBy = "jar", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("jar-deposits")
     private List<Deposite> deposits;
 
     // Constructors - SAME AS BEFORE
