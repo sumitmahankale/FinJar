@@ -1185,90 +1185,95 @@ const deleteJar = async (jarId) => {
               const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
               
               return (
-                <div
-                  key={jar.id}
-                  className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 relative group ${
-                    isDarkMode ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' : 'bg-white hover:shadow-lg border border-gray-200'
-                  } shadow-sm`}
-                  onClick={() => setSelectedJar(jar)}
-                >
-                  {/* Delete Button - Shows on hover */}
-                  <button
-                    onClick={(e) => handleDeleteJarClick(jar, e)}
-                    className={`absolute top-3 right-3 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 ${
-                      isDarkMode 
-                        ? 'bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white' 
-                        : 'bg-gray-100 hover:bg-red-500 text-gray-600 hover:text-white'
-                    }`}
-                    title="Delete jar"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                // ...existing code...
 
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <PiggyBank className="w-6 h-6 text-blue-600" />
-                      <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {jarName}
-                      </h3>
-                    </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      progress >= 100 
-                        ? 'bg-green-100 text-green-800' 
-                        : progress >= 50 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {progress.toFixed(0)}%
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Progress</span>
-                        <span className={`font-bold ${progress >= 100 ? 'text-green-500' : 'text-blue-500'}`}>
-                          {progress.toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className={`w-full h-3 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                        <div 
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            progress >= 100 ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${Math.min(progress, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <div>
-                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Current</p>
-                        <p className={`font-semibold text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                          ₹{formatCurrency(currentAmount)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Goal</p>
-                        <p className={`font-semibold text-lg ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-                          ₹{formatCurrency(goalAmount)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {goalAmount > 0 && (
-                      <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                          {progress >= 100 ? (
-                            <span className="text-green-500 font-medium">🎉 Goal Achieved!</span>
-                          ) : (
-                            `₹${formatCurrency(goalAmount - currentAmount)} remaining`
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+<div
+  key={jar.id}
+  className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 relative group ${
+    isDarkMode ? 'bg-gray-800 hover:bg-gray-750 border border-gray-700' : 'bg-white hover:shadow-lg border border-gray-200'
+  } shadow-sm`}
+  onClick={() => setSelectedJar(jar)}
+>
+  {/* Delete Button - Shows on hover in empty space at bottom right */}
+  <button
+    onClick={(e) => handleDeleteJarClick(jar, e)}
+    className={`absolute bottom-3 right-3 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 ${
+      isDarkMode 
+        ? 'bg-gray-700 hover:bg-red-600 text-gray-400 hover:text-white' 
+        : 'bg-gray-100 hover:bg-red-500 text-gray-600 hover:text-white'
+    }`}
+    title="Delete jar"
+  >
+    <Trash2 size={16} />
+  </button>
+
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center space-x-3">
+      <PiggyBank className="w-6 h-6 text-blue-600" />
+      <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        {jarName}
+      </h3>
+    </div>
+    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+      progress >= 100 
+        ? 'bg-green-100 text-green-800' 
+        : progress >= 50 
+        ? 'bg-yellow-100 text-yellow-800' 
+        : 'bg-blue-100 text-blue-800'
+    }`}>
+      {progress.toFixed(0)}%
+    </div>
+  </div>
+  
+  {/* Rest of the jar content - add padding bottom to make space for delete button */}
+  <div className="space-y-4 pb-10">
+    <div>
+      <div className="flex justify-between text-sm mb-2">
+        <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Progress</span>
+        <span className={`font-bold ${progress >= 100 ? 'text-green-500' : 'text-blue-500'}`}>
+          {progress.toFixed(1)}%
+        </span>
+      </div>
+      <div className={`w-full h-3 rounded-full ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+        <div 
+          className={`h-full rounded-full transition-all duration-300 ${
+            progress >= 100 ? 'bg-green-500' : 'bg-blue-500'
+          }`}
+          style={{ width: `${Math.min(progress, 100)}%` }}
+        ></div>
+      </div>
+    </div>
+    
+    <div className="flex justify-between">
+      <div>
+        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Current</p>
+        <p className={`font-semibold text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
+          ₹{formatCurrency(currentAmount)}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Goal</p>
+        <p className={`font-semibold text-lg ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+          ₹{formatCurrency(goalAmount)}
+        </p>
+      </div>
+    </div>
+    
+    {goalAmount > 0 && (
+      <div className="text-center pt-2 border-t border-gray-200 dark:border-gray-700">
+        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+          {progress >= 100 ? (
+            <span className="text-green-500 font-medium">🎉 Goal Achieved!</span>
+          ) : (
+            `₹${formatCurrency(goalAmount - currentAmount)} remaining`
+          )}
+        </p>
+      </div>
+    )}
+  </div>
+</div>
+
+// ...existing code...
               );
             })}
           </div>
