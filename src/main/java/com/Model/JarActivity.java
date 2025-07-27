@@ -9,6 +9,8 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 
+import com.fasterxml.jackson.annotation.JsonBackReference; // ADD THIS IMPORT
+
 @Entity
 public class JarActivity {
 
@@ -22,13 +24,15 @@ public class JarActivity {
 
     @ManyToOne
     @JoinColumn(name = "jar_id")
+    @JsonBackReference("jar-activities") // ADD THIS
     private Jar jar;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
+    @JsonBackReference("user-activities") // ADD THIS
     private User user;
 
-
+    // Getters and setters - SAME AS BEFORE
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
 import { 
   PiggyBank, 
   Plus, 
@@ -23,6 +24,8 @@ const ViewJars = ({ isDarkMode = false }) => {
   const [depositError, setDepositError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  const hasFetchedJars = useRef(false);
+
   // Get auth token from localStorage
   const getAuthToken = () => {
     const token = localStorage.getItem('authToken');
@@ -35,68 +38,52 @@ const ViewJars = ({ isDarkMode = false }) => {
 
   // Fetch user's jars
   const fetchJars = async (showRefreshing = false) => {
-  try {
-    if (showRefreshing) setRefreshing(true);
-    setError(null);
-    
-    const token = getAuthToken();
-    if (!token) return;
-
-    console.log('Fetching jars...'); // Debug log
-
-    const response = await fetch('http://localhost:8080/api/jars', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log('Response status:', response.status);
-
-    if (response.ok) {
-      // Get response as text first to handle Jackson circular reference issues
-      let responseText = await response.text();
-      console.log('Response length:', responseText.length);
+    try {
+      if (showRefreshing) setRefreshing(true);
+      setError(null);
       
-      // Check if response is empty
-      if (!responseText || responseText.trim() === '') {
-        console.log('Empty response received');
-        setJars([]);
-        return;
-      }
+      const token = getAuthToken();
+      if (!token) return;
 
-      // If the response is too large (indicating circular reference), extract data manually
-      if (responseText.length > 50000) {
-        console.warn('Response too large, extracting jar data manually...');
+      console.log('Fetching jars...');
+
+      const response = await fetch('http://localhost:8080/api/jars', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+
+      if (response.ok) {
+        // Get response as text first to handle Jackson circular reference issues
+        let responseText = await response.text();
+        console.log('Response length:', responseText.length);
         
-        try {
-          // Extract jar data using multiple regex patterns to be more flexible
-          const extractedJars = [];
+        // Check if response is empty
+        if (!responseText || responseText.trim() === '') {
+          console.log('Empty response received');
+          setJars([]);
+          return;
+        }
+
+        // If the response is too large (indicating circular reference), extract data manually
+        if (responseText.length > 50000) {
+          console.warn('Response too large, extracting jar data manually...');
           
-          // Pattern 1: Look for jar objects with id, title, targetAmount, savedAmount
-          const jarPattern1 = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
-          let match;
-          
-          while ((match = jarPattern1.exec(responseText)) !== null) {
-            const jarId = parseInt(match[1]);
-            // Check if we already have this jar
-            if (!extractedJars.find(jar => jar.id === jarId)) {
-              extractedJars.push({
-                id: jarId,
-                title: match[2],
-                targetAmount: parseFloat(match[3]) || 0,
-                savedAmount: parseFloat(match[4]) || 0
-              });
-            }
-          }
-          
-          // Pattern 2: Alternative field names (goal_amount, current_amount, etc.)
-          if (extractedJars.length === 0) {
-            const jarPattern2 = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name|jarName)"\s*:\s*"([^"]*)"[^}]*?"(?:targetAmount|goalAmount|target_amount|goal_amount)"\s*:\s*([\d.]+)[^}]*?"(?:savedAmount|currentAmount|saved_amount|current_amount)"\s*:\s*([\d.]+)/g;
+          try {
+            // Extract jar data using multiple regex patterns to be more flexible
+            const extractedJars = [];
             
-            while ((match = jarPattern2.exec(responseText)) !== null) {
+            // Pattern 1: Look for jar objects with id, title, targetAmount, savedAmount
+            const jarPattern1 = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
+            let match;
+            
+            while ((match = jarPattern1.exec(responseText)) !== null) {
               const jarId = parseInt(match[1]);
+              // Check if we already have this jar
               if (!extractedJars.find(jar => jar.id === jarId)) {
                 extractedJars.push({
                   id: jarId,
@@ -106,90 +93,109 @@ const ViewJars = ({ isDarkMode = false }) => {
                 });
               }
             }
-          }
-          
-          // Pattern 3: Just extract basic jar info if other patterns fail
-          if (extractedJars.length === 0) {
-            const basicPattern = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name)"\s*:\s*"([^"]*)"/g;
             
-            while ((match = basicPattern.exec(responseText)) !== null) {
-              const jarId = parseInt(match[1]);
-              if (!extractedJars.find(jar => jar.id === jarId)) {
-                extractedJars.push({
-                  id: jarId,
-                  title: match[2],
-                  targetAmount: 0,
-                  savedAmount: 0
-                });
+            // Pattern 2: Alternative field names (goal_amount, current_amount, etc.)
+            if (extractedJars.length === 0) {
+              const jarPattern2 = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name|jarName)"\s*:\s*"([^"]*)"[^}]*?"(?:targetAmount|goalAmount|target_amount|goal_amount)"\s*:\s*([\d.]+)[^}]*?"(?:savedAmount|currentAmount|saved_amount|current_amount)"\s*:\s*([\d.]+)/g;
+              
+              while ((match = jarPattern2.exec(responseText)) !== null) {
+                const jarId = parseInt(match[1]);
+                if (!extractedJars.find(jar => jar.id === jarId)) {
+                  extractedJars.push({
+                    id: jarId,
+                    title: match[2],
+                    targetAmount: parseFloat(match[3]) || 0,
+                    savedAmount: parseFloat(match[4]) || 0
+                  });
+                }
               }
             }
-          }
-          
-          if (extractedJars.length > 0) {
-            console.log('Successfully extracted jars manually:', extractedJars);
-            setJars(extractedJars);
+            
+            // Pattern 3: Just extract basic jar info if other patterns fail
+            if (extractedJars.length === 0) {
+              const basicPattern = /"id"\s*:\s*(\d+)[^}]*?"(?:title|name)"\s*:\s*"([^"]*)"/g;
+              
+              while ((match = basicPattern.exec(responseText)) !== null) {
+                const jarId = parseInt(match[1]);
+                if (!extractedJars.find(jar => jar.id === jarId)) {
+                  extractedJars.push({
+                    id: jarId,
+                    title: match[2],
+                    targetAmount: 0,
+                    savedAmount: 0
+                  });
+                }
+              }
+            }
+            
+            if (extractedJars.length > 0) {
+              console.log('Successfully extracted jars manually:', extractedJars);
+              setJars(extractedJars);
+              return;
+            } else {
+              setError('Could not extract jar data from response. Your backend has a circular reference issue that needs to be fixed.');
+              return;
+            }
+            
+          } catch (extractionError) {
+            console.error('Manual extraction failed:', extractionError);
+            setError('Backend returned circular reference data. Manual extraction also failed. Please restart your backend server.');
             return;
-          } else {
-            setError('Could not extract jar data from response. Your backend has a circular reference issue that needs to be fixed.');
-            return;
           }
-          
-        } catch (extractionError) {
-          console.error('Manual extraction failed:', extractionError);
-          setError('Backend returned circular reference data. Manual extraction also failed. Please restart your backend server.');
-          return;
         }
-      }
 
-      // For normal sized responses, try regular JSON parsing
-      try {
-        // Clean up common JSON issues
-        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-        
-        // Try to parse the JSON
-        const data = JSON.parse(responseText);
-        console.log('Successfully parsed jars:', data);
-        
-        // Ensure it's an array and clean the data
-        if (Array.isArray(data)) {
-          // Clean each jar object to remove potential circular references
-          const cleanedJars = data.map(jar => ({
-            id: jar.id,
-            title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
-            targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
-            savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
-            // Don't include nested objects that might cause issues
-          }));
+        // For normal sized responses, try regular JSON parsing
+        try {
+          // Clean up common JSON issues
+          responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
           
-          setJars(cleanedJars);
-        } else {
-          setJars([]);
+          // Try to parse the JSON
+          const data = JSON.parse(responseText);
+          console.log('Successfully parsed jars:', data);
+          
+          // Ensure it's an array and clean the data
+          if (Array.isArray(data)) {
+            // Clean each jar object to remove potential circular references
+            const cleanedJars = data.map(jar => ({
+              id: jar.id,
+              title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
+              targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
+              savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
+              // Don't include nested objects that might cause issues
+            }));
+            
+            setJars(cleanedJars);
+          } else {
+            setJars([]);
+          }
+          
+        } catch (jsonError) {
+          console.error('JSON parsing error:', jsonError);
+          setError('Failed to parse jar data. This appears to be a circular reference issue in your backend.');
         }
-        
-      } catch (jsonError) {
-        console.error('JSON parsing error:', jsonError);
-        setError('Failed to parse jar data. This appears to be a circular reference issue in your backend.');
+      } else if (response.status === 401) {
+        setError('Session expired. Please log in again.');
+        localStorage.removeItem('authToken');
+      } else if (response.status === 500) {
+        setError('Backend server error. This is likely a Jackson circular reference issue. Please check your backend logs.');
+      } else {
+        const errorText = await response.text();
+        console.error('HTTP error response:', errorText);
+        setError(`Failed to fetch jars: ${response.status} - ${errorText}`);
       }
-    } else if (response.status === 401) {
-      setError('Session expired. Please log in again.');
-      localStorage.removeItem('authToken');
-    } else if (response.status === 500) {
-      setError('Backend server error. This is likely a Jackson circular reference issue. Please check your backend logs.');
-    } else {
-      const errorText = await response.text();
-      console.error('HTTP error response:', errorText);
-      setError(`Failed to fetch jars: ${response.status} - ${errorText}`);
+    } catch (err) {
+      console.error('Network error fetching jars:', err);
+      setError('Unable to connect to server. Please check if the backend is running on localhost:8080');
+    } finally {
+      setLoading(false);
+      if (showRefreshing) setRefreshing(false);
     }
-  } catch (err) {
-    console.error('Network error fetching jars:', err);
-    setError('Unable to connect to server. Please check if the backend is running on localhost:8080');
-  } finally {
-    setLoading(false);
-    if (showRefreshing) setRefreshing(false);
-  }
-};
+  };
+
   // Fetch deposits for a specific jar
   const fetchDeposits = async (jarId) => {
+  console.log('Fetching deposits for jar:', jarId); // Debug log
+  
   try {
     const token = getAuthToken();
     if (!token) return;
@@ -202,12 +208,16 @@ const ViewJars = ({ isDarkMode = false }) => {
       }
     });
 
+    console.log('Deposits response status:', response.status); // Debug log
+
     if (response.ok) {
       // Handle deposits response similar to jars
       let responseText = await response.text();
       console.log('Deposits response length:', responseText.length);
+      console.log('Raw deposits response:', responseText.substring(0, 500)); // Debug log
       
       if (!responseText || responseText.trim() === '') {
+        console.log('Empty deposits response');
         setDeposits([]);
         return;
       }
@@ -246,11 +256,16 @@ const ViewJars = ({ isDarkMode = false }) => {
       // Normal JSON parsing for smaller responses
       try {
         responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-     
         
         const data = JSON.parse(responseText);
-        console.log('Fetched deposits:', data);
-        setDeposits(Array.isArray(data) ? data : []);
+        console.log('Fetched deposits successfully:', data);
+        
+        if (Array.isArray(data)) {
+          setDeposits(data);
+        } else {
+          console.log('Deposits data is not an array:', data);
+          setDeposits([]);
+        }
       } catch (jsonError) {
         console.error('Error parsing deposits JSON:', jsonError);
         setDeposits([]);
@@ -265,12 +280,20 @@ const ViewJars = ({ isDarkMode = false }) => {
   }
 };
 
+  useEffect(() => {
+  if (!hasFetchedJars.current) {
+    hasFetchedJars.current = true;
+    fetchJars();
+  }
+}, []);
 
 useEffect(() => {
   if (selectedJar && selectedJar.id) {
+    console.log('Selected jar changed, fetching deposits for jar:', selectedJar.id);
     fetchDeposits(selectedJar.id);
   }
-}, [selectedJar?.id]); // Only re-run when selectedJar.id changes
+}, [selectedJar?.id]);
+
   // Add deposit to jar
   const addDeposit = async () => {
   setDepositError('');
@@ -315,8 +338,6 @@ useEffect(() => {
       // Handle the response which might also have circular reference issues
       let responseText = await response.text();
       
-      // Replace the catch block in addDeposit function (around line 325) with this:
-
       try {
         // Try to parse response, but don't fail if it has issues
         if (responseText && responseText.trim() !== '') {
@@ -333,16 +354,21 @@ useEffect(() => {
       setDepositAmount('');
       setDepositError('');
       
-      // Refresh data
+      // Refresh deposits
       await fetchDeposits(selectedJar.id);
-      await fetchJars();
       
-      // Update selected jar with fresh data
-      const updatedJars = await fetchJarsData();
-      const updatedJar = updatedJars.find(jar => jar.id === selectedJar.id);
-      if (updatedJar) {
-        setSelectedJar(updatedJar);
-      }
+      // Update selected jar locally
+      setSelectedJar(prev => ({
+        ...prev,
+        savedAmount: prev.savedAmount + amount
+      }));
+      
+      // Update the jar in the main jars list
+      setJars(prev => prev.map(jar => 
+        jar.id === selectedJar.id 
+          ? { ...jar, savedAmount: jar.savedAmount + amount }
+          : jar
+      ));
     } else {
       const errorText = await response.text();
       console.error('Failed to add deposit:', response.status, errorText);
@@ -366,7 +392,6 @@ useEffect(() => {
       setDepositAmount('');
       setDepositError('');
       await fetchDeposits(selectedJar.id);
-      await fetchJars();
     } else {
       setDepositError('Network error. Please check your connection and try again.');
     }
@@ -375,14 +400,14 @@ useEffect(() => {
   }
 };
 
-  // Helper function to fetch jars data without setting state
-  const fetchJarsData = async () => {
+  // Delete deposit
+  const deleteDeposit = async (depositId) => {
   try {
     const token = getAuthToken();
-    if (!token) return [];
+    if (!token) return;
 
-    const response = await fetch('http://localhost:8080/api/jars', {
-      method: 'GET',
+    const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
+      method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -390,94 +415,36 @@ useEffect(() => {
     });
 
     if (response.ok) {
-      let responseText = await response.text();
+      console.log('Deposit deleted successfully');
       
-      if (!responseText || responseText.trim() === '') {
-        return [];
+      // Find the deleted deposit to get its amount
+      const deletedDeposit = deposits.find(d => d.id === depositId);
+      if (deletedDeposit) {
+        const deletedAmount = deletedDeposit.amount;
+        
+        // Update selected jar
+        setSelectedJar(prev => ({
+          ...prev,
+          savedAmount: prev.savedAmount - deletedAmount
+        }));
+        
+        // Update jars list
+        setJars(prev => prev.map(jar => 
+          jar.id === selectedJar.id 
+            ? { ...jar, savedAmount: jar.savedAmount - deletedAmount }
+            : jar
+        ));
       }
-
-      // Handle large responses (circular references)
-      if (responseText.length > 50000) {
-        const extractedJars = [];
-        const jarPattern = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
-        let match;
-        
-        while ((match = jarPattern.exec(responseText)) !== null) {
-          const jarId = parseInt(match[1]);
-          if (!extractedJars.find(jar => jar.id === jarId)) {
-            extractedJars.push({
-              id: jarId,
-              title: match[2],
-              targetAmount: parseFloat(match[3]) || 0,
-              savedAmount: parseFloat(match[4]) || 0
-            });
-          }
-        }
-        
-        return extractedJars;
-      }
-
-      // Normal JSON parsing for smaller responses
-      try {
-        responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-       
-        
-        const data = JSON.parse(responseText);
-        
-        if (Array.isArray(data)) {
-          return data.map(jar => ({
-            id: jar.id,
-            title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
-            targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
-            savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
-          }));
-        }
-        return [];
-      } catch (jsonError) {
-        console.error('Error parsing jars data:', jsonError);
-        return [];
-      }
+      
+      // Refresh deposits list
+      await fetchDeposits(selectedJar.id);
+    } else {
+      console.error('Failed to delete deposit:', response.status);
     }
-    return [];
   } catch (err) {
-    console.error('Error fetching jars data:', err);
-    return [];
+    console.error('Error deleting deposit:', err);
   }
 };
-  // Delete deposit
-  const deleteDeposit = async (depositId) => {
-    try {
-      const token = getAuthToken();
-      if (!token) return;
-
-      const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        console.log('Deposit deleted successfully');
-        // Refresh data
-        await fetchDeposits(selectedJar.id);
-        await fetchJars();
-        
-        // Update selected jar with fresh data
-        const updatedJars = await fetchJarsData();
-        const updatedJar = updatedJars.find(jar => jar.id === selectedJar.id);
-        if (updatedJar) {
-          setSelectedJar(updatedJar);
-        }
-      } else {
-        console.error('Failed to delete deposit:', response.status);
-      }
-    } catch (err) {
-      console.error('Error deleting deposit:', err);
-    }
-  };
-
   // Utility function to get the correct field values from jar object
   const getJarValues = (jar) => {
     // Try different possible field names based on your backend response
@@ -495,16 +462,6 @@ useEffect(() => {
       minimumFractionDigits: 0
     }).format(amount || 0);
   };
-
-  useEffect(() => {
-    fetchJars();
-  }, []);
-
-  useEffect(() => {
-    if (selectedJar) {
-      fetchDeposits(selectedJar.id);
-    }
-  }, [selectedJar]);
 
   if (loading) {
     return (

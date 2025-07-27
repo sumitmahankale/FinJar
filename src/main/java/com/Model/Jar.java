@@ -11,8 +11,8 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import com.fasterxml.jackson.annotation.JsonBackReference; // ADD THIS IMPORT
+import com.fasterxml.jackson.annotation.JsonManagedReference; // ADD THIS IMPORT
 
 @Entity
 public class Jar {
@@ -27,15 +27,16 @@ public class Jar {
 
     private double savedAmount = 0.0;
     
-    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "user_id")
+    @JsonBackReference("user-jars") // CHANGE FROM @JsonIgnore TO THIS
     private User user;
 
     @OneToMany(mappedBy = "jar", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("jar-deposits") // ADD THIS
     private List<Deposite> deposits;
 
-    // Constructors
+    // Constructors - SAME AS BEFORE
     public Jar() {}
 
     public Jar(String title, double targetAmount, User user) {
@@ -45,8 +46,7 @@ public class Jar {
         this.savedAmount = 0.0;
     }
 
-    // Getters and Setters
-
+    // Getters and Setters - SAME AS BEFORE
     public Long getId() {
         return id;
     }
@@ -95,4 +95,3 @@ public class Jar {
         this.deposits = deposits;
     }
 }
-
