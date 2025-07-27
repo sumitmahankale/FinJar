@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ViewJars from './ViewJars'; 
-import CreateJars from './CreateJars'; // ADD THIS LINE - IT'S MISSING!
+import Reports from './Reports';
+import CreateJars from './CreateJars';
 import { 
   PiggyBank, 
   Plus, 
@@ -547,7 +548,12 @@ export default function FinJarMinimalDashboard() {
     );
   }
 
-  // Default empty content for other tabs (reports, settings)
+  // Render Reports component when reports tab is active
+  if (activeTab === 'reports') {
+    return <Reports isDarkMode={isDarkMode} />;
+  }
+
+  // Default empty content for settings tab
   return (
     <div className="flex items-center justify-center h-full w-full">
       <div className="text-center py-12 max-w-md mx-auto px-4">
@@ -589,7 +595,6 @@ export default function FinJarMinimalDashboard() {
     </div>
   );
 };
-
   return (
     <div className={`h-screen flex transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
