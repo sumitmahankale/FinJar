@@ -302,30 +302,34 @@ const CollapsibleSidebar = ({ isDarkMode, activeTab, setActiveTab, onLogout, use
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
-      {/* Logo Section */}
-      <div className={`p-4 border-b transition-all duration-300 ${
-        isDarkMode ? 'border-gray-700' : 'border-gray-200'
+
+
+{/* Logo Section */}
+<div className={`p-4 border-b transition-all duration-300 ${
+  isDarkMode ? 'border-gray-700' : 'border-gray-200'
+}`}>
+  <div className="flex items-center space-x-3">
+    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+      <PiggyBank className="w-5 h-5 text-white" />
+    </div>
+    <div className={`transition-all duration-300 overflow-hidden ${
+      isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
+    }`}>
+      <h1 className={`text-lg font-bold whitespace-nowrap ${
+        isDarkMode ? 'text-white' : 'text-gray-900'
       }`}>
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <PiggyBank className="w-5 h-5 text-white" />
-          </div>
-          <div className={`transition-all duration-300 overflow-hidden ${
-            isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
-          }`}>
-            <h1 className={`text-lg font-bold whitespace-nowrap ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              FinJar
-            </h1>
-            <p className={`text-xs whitespace-nowrap ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Dashboard
-            </p>
-          </div>
-        </div>
-      </div>
+        FinJar
+      </h1>
+      <p className={`text-xs whitespace-nowrap mb-1 -mt-0.4 ${
+        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+      }`}>
+        Dashboard
+      </p>
+    </div>
+  </div>
+</div>
+
+
 
       {/* User Info Section */}
       <div className={`p-4 border-b transition-all duration-300 ${

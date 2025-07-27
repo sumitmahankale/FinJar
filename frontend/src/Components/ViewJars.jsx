@@ -1152,7 +1152,7 @@ const deleteJar = async (jarId) => {
       {/* Delete Modal */}
       <DeleteJarModal />
 
-      <div className="p-6">
+      <div className="p-10">
         <div className="flex items-center justify-between mb-6">
           <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             My Savings Jars
@@ -1168,17 +1168,20 @@ const deleteJar = async (jarId) => {
           </button>
         </div>
 
-        {jars.length === 0 ? (
-          <div className="text-center py-12">
-            <PiggyBank className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
-            <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              No Jars Found
-            </h3>
-            <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Create your first jar to start saving!
-            </p>
-          </div>
-        ) : (
+{jars.length === 0 ? (
+  <div className="text-center py-12">
+    <PiggyBank className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+    <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+      No Jars Found
+    </h3>
+    <p className={`-mt-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+      Create your first jar to start saving!
+    </p>
+  </div>
+) : (
+
+// ...existing code...
+// ...existing code...
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
               const { currentAmount, goalAmount, jarName } = getJarValues(jar);
