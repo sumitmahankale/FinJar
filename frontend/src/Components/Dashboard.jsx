@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ViewJars from './ViewJars'; 
+import CreateJars from './CreateJars'; // ADD THIS LINE - IT'S MISSING!
 import { 
   PiggyBank, 
   Plus, 
@@ -532,7 +533,17 @@ export default function FinJarMinimalDashboard() {
     return <ViewJars isDarkMode={isDarkMode} />;
   }
 
-  // Default empty content for other tabs
+  // Render CreateJars component when create tab is active
+  if (activeTab === 'create') {
+    return (
+      <CreateJars 
+        isDarkMode={isDarkMode} 
+        onNavigateBack={() => setActiveTab('jars')}
+      />
+    );
+  }
+
+  // Default empty content for other tabs (reports, settings)
   return (
     <div className="flex items-center justify-center h-full w-full">
       <div className="text-center py-12 max-w-md mx-auto px-4">
