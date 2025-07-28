@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ViewJars from './ViewJars'; 
 import Reports from './Reports';
 import CreateJars from './CreateJars';
+import Settinggs from './Settinggs';
 import { 
   PiggyBank, 
   Plus, 
@@ -469,7 +470,6 @@ export default function FinJarMinimalDashboard() {
   useEffect(() => {
     refreshUser();
   }, []);
-
   // Toggle dark mode and save to localStorage
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
@@ -532,7 +532,7 @@ export default function FinJarMinimalDashboard() {
     }
   };
 
-  const renderEmptyContent = () => {
+const renderEmptyContent = () => {
   // Render ViewJars component when jars tab is active
   if (activeTab === 'jars') {
     return <ViewJars isDarkMode={isDarkMode} />;
@@ -553,7 +553,12 @@ export default function FinJarMinimalDashboard() {
     return <Reports isDarkMode={isDarkMode} />;
   }
 
-  // Default empty content for settings tab
+  // Render Settings component when settings tab is active
+  if (activeTab === 'settings') {
+    return <Settinggs isDarkMode={isDarkMode} />;
+  }
+
+  // Default empty content (this won't be reached now)
   return (
     <div className="flex items-center justify-center h-full w-full">
       <div className="text-center py-12 max-w-md mx-auto px-4">
@@ -595,6 +600,8 @@ export default function FinJarMinimalDashboard() {
     </div>
   );
 };
+
+// ...existing code...
   return (
     <div className={`h-screen flex transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
