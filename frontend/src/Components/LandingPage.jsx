@@ -204,41 +204,45 @@ const FinJarChatbot = ({ isDarkMode }) => {
   };
 
   // Floating chat button
-  if (!isOpen) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => setIsOpen(true)}
-          className={`group relative w-16 h-16 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
-            isDarkMode 
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500' 
-              : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
-          }`}
-        >
-          <MessageCircle className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-          
-          {/* Notification badge */}
-          <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">1</span>
-          </div>
-          
-          {/* Pulse animation */}
-          <div className="absolute inset-0 rounded-full bg-blue-400 opacity-30 animate-ping"></div>
-          
-          {/* Tooltip */}
-          <div className={`absolute bottom-full right-0 mb-2 px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
-            isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-900 text-white'
-          }`}>
-            Chat with FinBot
-            <div className={`absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
-              isDarkMode ? 'border-t-gray-800' : 'border-t-gray-900'
-            }`}></div>
-          </div>
-        </button>
-      </div>
-    );
-  }
+  // ...existing code...
 
+// Floating chat button
+if (!isOpen) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`group relative w-16 h-16 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
+          isDarkMode 
+            ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500' 
+            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500'
+        }`}
+      >
+        <MessageCircle className="w-8 h-8 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+        
+        {/* Notification badge */}
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+          <span className="text-white text-xs font-bold">1</span>
+        </div>
+        
+        {/* Removed pulse animation - this line was causing the glow effect */}
+        {/* <div className="absolute inset-0 rounded-full bg-blue-400 opacity-30 animate-ping"></div> */}
+        
+        {/* Tooltip */}
+        <div className={`absolute bottom-full right-0 mb-2 px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
+          isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-900 text-white'
+        }`}>
+          Chat with FinBot
+          <div className={`absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${
+            isDarkMode ? 'border-t-gray-800' : 'border-t-gray-900'
+          }`}></div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+// ...existing code...
   // Full screen overlay chatbot
   return (
     <div 
