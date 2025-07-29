@@ -3,7 +3,7 @@
 **FinJar** is a professional fintech backend application built with Spring Boot that empowers users to develop disciplined saving habits through digital savings jars. The platform enables users to create multiple savings goals, make micro-deposits, and track their progress toward financial objectives with comprehensive transaction logging and real-time analytics.
 
 <br>
-<img width="1900" height="906" alt="image" src="https://github.com/user-attachments/assets/658192a9-9b58-42fe-86c5-e87fc983d670" />
+<img width="1897" height="908" alt="image" src="https://github.com/user-attachments/assets/140469e5-08b5-4da4-871f-c7f55e1d21c0" />
 <br>
 
 ---
