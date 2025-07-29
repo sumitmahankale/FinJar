@@ -1,7 +1,6 @@
 
-/* ✅ Load Tailwind styles first */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Then your custom styles */
+

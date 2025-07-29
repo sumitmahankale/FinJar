@@ -45,13 +45,6 @@ const ViewJars = ({ isDarkMode = false }) => {
     }
     return token;
   };
-
-  // Delete jar function
-  // ...existing code...
-
-// Delete jar function with deposits cleanup
-// ...existing code...
-
 // Delete jar function with improved error handling
 const deleteJar = async (jarId) => {
   setDeleteLoading(true);
@@ -65,8 +58,6 @@ const deleteJar = async (jarId) => {
     }
 
     console.log('Deleting jar:', jarId);
-
-    // Step 1: First fetch and delete all deposits for this jar
     try {
       console.log('Fetching deposits to delete for jar:', jarId);
       const depositsResponse = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
@@ -82,10 +73,8 @@ const deleteJar = async (jarId) => {
         
         if (depositsText && depositsText.trim() !== '') {
           try {
-            // Handle potential circular reference issues in deposits response
+          
             let depositsToDelete = [];
-            
-            // Try normal JSON parsing first
             try {
               const depositsData = JSON.parse(depositsText);
               if (Array.isArray(depositsData)) {
@@ -223,11 +212,6 @@ const deleteJar = async (jarId) => {
     setDeleteLoading(false);
   }
 };
-
-// ...existing code...
-
-// ...existing code...
-
   // Handle delete jar button click
   const handleDeleteJarClick = (jar, event) => {
     event.stopPropagation(); // Prevent jar selection
@@ -359,8 +343,6 @@ const deleteJar = async (jarId) => {
             return;
           }
         }
-
-        // For normal sized responses, try regular JSON parsing
         try {
           // Clean up common JSON issues
           responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
@@ -550,11 +532,11 @@ const deleteJar = async (jarId) => {
       });
 
       if (response.ok) {
-        // Handle the response which might also have circular reference issues
+    
         let responseText = await response.text();
         
         try {
-          // Try to parse response, but don't fail if it has issues
+         
           if (responseText && responseText.trim() !== '') {
             const result = JSON.parse(responseText);
             console.log('Deposit added successfully:', result);
@@ -660,10 +642,8 @@ const deleteJar = async (jarId) => {
       console.error('Error deleting deposit:', err);
     }
   };
-
-  // Utility function to get the correct field values from jar object
   const getJarValues = (jar) => {
-    // Try different possible field names based on your backend response
+  
     const currentAmount = jar.savedAmount || jar.saved_amount || jar.currentAmount || jar.current_amount || 0;
     const goalAmount = jar.targetAmount || jar.target_amount || jar.goalAmount || jar.goal_amount || 0;
     const jarName = jar.title || jar.name || jar.jarName || jar.jar_name || 'Unnamed Jar';
@@ -1179,17 +1159,12 @@ const deleteJar = async (jarId) => {
     </p>
   </div>
 ) : (
-
-// ...existing code...
-// ...existing code...
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jars.map((jar) => {
               const { currentAmount, goalAmount, jarName } = getJarValues(jar);
               const progress = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
               
               return (
-                // ...existing code...
-
 <div
   key={jar.id}
   className={`p-6 rounded-xl cursor-pointer transition-all duration-200 hover:scale-105 relative group ${
@@ -1227,8 +1202,7 @@ const deleteJar = async (jarId) => {
       {progress.toFixed(0)}%
     </div>
   </div>
-  
-  {/* Rest of the jar content - add padding bottom to make space for delete button */}
+
   <div className="space-y-4 pb-10">
     <div>
       <div className="flex justify-between text-sm mb-2">
@@ -1276,7 +1250,6 @@ const deleteJar = async (jarId) => {
   </div>
 </div>
 
-// ...existing code...
               );
             })}
           </div>
