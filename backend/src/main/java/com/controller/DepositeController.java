@@ -14,7 +14,7 @@ import com.service.UserService;
 
 @RestController
 @RequestMapping("/api/deposits")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000", "https://finjar-chi.vercel.app", "https://finjar-frontend.vercel.app"}, allowCredentials = "true")
 public class DepositeController {
 
     @Autowired

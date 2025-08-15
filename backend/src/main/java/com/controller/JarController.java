@@ -20,7 +20,7 @@ import com.service.JarService;
 
 @RestController
 @RequestMapping("/api/jars")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000", "https://finjar-chi.vercel.app", "https://finjar-frontend.vercel.app"}, allowCredentials = "true")
 public class JarController {
 
     @Autowired	
