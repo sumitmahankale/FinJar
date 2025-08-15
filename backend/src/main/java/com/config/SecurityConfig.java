@@ -36,7 +36,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf().disable()
             .authorizeRequests()
-                .antMatchers("/auth/login", "/api/users/register", "/health/**").permitAll()
+                .antMatchers("/", "/status", "/health/**", "/auth/login", "/api/users/register").permitAll()
                 .anyRequest().authenticated()
             .and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
