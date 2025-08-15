@@ -1,0 +1,2 @@
+# This file tells Render to use Java buildpack
+java
