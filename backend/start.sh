@@ -1,9 +1,14 @@
 #!/bin/bash
-echo "Installing Java runtime..."
+echo "Setting up portable Java runtime..."
 
-# Install Java 11 using apt-get (more reliable on Render)
-apt-get update -qq
-apt-get install -y openjdk-11-jre-headless
+# Download and extract portable OpenJDK
+if [ ! -d "jdk" ]; then
+    echo "Downloading OpenJDK 11..."
+    curl -L -o openjdk.tar.gz "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20%2B8/OpenJDK11U-jre_x64_linux_hotspot_11.0.20_8.tar.gz"
+    tar -xzf openjdk.tar.gz
+    mv jdk-11.0.20+8-jre jdk
+    rm openjdk.tar.gz
+fi
 
-echo "Java installed. Starting Spring Boot application..."
-java -Dserver.port=$PORT -Dspring.profiles.active=prod -jar target/FinJar-0.0.1-SNAPSHOT.jar
+echo "Starting Spring Boot application..."
+./jdk/bin/java -Dserver.port=$PORT -Dspring.profiles.active=prod -jar target/FinJar-0.0.1-SNAPSHOT.jar
