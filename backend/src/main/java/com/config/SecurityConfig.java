@@ -33,8 +33,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors() // ✅ Enable CORS
-            .and()
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ Explicit CORS config
             .csrf().disable()
             .authorizeRequests()
                 .antMatchers("/auth/login", "/api/users/register").permitAll()
@@ -49,18 +48,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // Allow specific origins
-        List<String> allowedOrigins = new ArrayList<>();
-        allowedOrigins.add("http://localhost:5173");
-        allowedOrigins.add("http://localhost:3000");
-        allowedOrigins.add("https://finjar-chi.vercel.app");
-        allowedOrigins.add("https://finjar-frontend.vercel.app");
-        configuration.setAllowedOrigins(allowedOrigins);
-        
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
-        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedOrigin("http://localhost:3000");
+        configuration.addAllowedOrigin("https://finjar-chi.vercel.app");
+        configuration.addAllowedOrigin("https://finjar-frontend.vercel.app");
+        configuration.addAllowedHeader("*");
+        configuration.addAllowedMethod("*");
         configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
