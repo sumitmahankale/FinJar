@@ -17,11 +17,11 @@
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "https://finjar-backend-xyz.onrender.com"
+    "VITE_API_BASE_URL": "https://finjar-backend.onrender.com"
   },
   "build": {
     "env": {
-      "VITE_API_BASE_URL": "https://finjar-backend-xyz.onrender.com"
+      "VITE_API_BASE_URL": "https://finjar-backend.onrender.com"
     }
   }
 }
