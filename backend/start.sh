@@ -1,14 +1,24 @@
 #!/bin/bash
-echo "Setting up portable Java runtime..."
 
-# Download and extract portable OpenJDK
-if [ ! -d "jdk" ]; then
-    echo "Downloading OpenJDK 11..."
-    curl -L -o openjdk.tar.gz "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20%2B8/OpenJDK11U-jre_x64_linux_hotspot_11.0.20_8.tar.gz"
-    tar -xzf openjdk.tar.gz
-    mv jdk-11.0.20+8-jre jdk
-    rm openjdk.tar.gz
+echo "=== FinJar Backend Start Script ==="
+
+# Set Java environment
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+
+# Check if JAR exists
+if [ ! -f "target/FinJar-0.0.1-SNAPSHOT.jar" ]; then
+    echo "ERROR: JAR file not found!"
+    ls -la target/
+    exit 1
 fi
 
 echo "Starting Spring Boot application..."
-./jdk/bin/java -Dserver.port=$PORT -Dspring.profiles.active=prod -jar target/FinJar-0.0.1-SNAPSHOT.jar
+echo "PORT: $PORT"
+echo "SPRING_PROFILES_ACTIVE: prod"
+
+# Start the application
+java -Dserver.port=${PORT:-8080} \
+     -Dspring.profiles.active=prod \
+     -Xmx512m \
+     -jar target/FinJar-0.0.1-SNAPSHOT.jar

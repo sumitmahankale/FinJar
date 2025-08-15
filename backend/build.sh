@@ -1,13 +1,31 @@
 #!/bin/bash
-# Install Java 11
-echo "Installing Java 11..."
-curl -s "https://get.sdkman.io" | bash
-source ~/.sdkman/bin/sdkman-init.sh
-sdk install java 11.0.12-tem
 
-# Build the application
+echo "=== FinJar Backend Build Script ==="
+
+# Set up environment
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+
+# Install OpenJDK 11 if not available
+if ! command -v java &> /dev/null; then
+    echo "Installing OpenJDK 11..."
+    apt-get update
+    apt-get install -y openjdk-11-jdk
+fi
+
+# Display Java version
+echo "Java version:"
+java -version
+
+# Navigate to correct directory and build
+echo "Current directory: $(pwd)"
+echo "Directory contents:"
+ls -la
+
+# Make mvnw executable and build
+chmod +x mvnw
 echo "Building Spring Boot application..."
-chmod +x ./mvnw
 ./mvnw clean package -DskipTests
 
-echo "Build completed successfully!"
+echo "Build completed! JAR file:"
+ls -la target/FinJar-0.0.1-SNAPSHOT.jar

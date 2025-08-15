@@ -36,7 +36,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf().disable()
             .authorizeRequests()
-                .antMatchers("/auth/login", "/api/users/register").permitAll()
+                .antMatchers("/", "/health", "/status", "/auth/login", "/api/users/register").permitAll()
                 .anyRequest().authenticated()
             .and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
@@ -53,6 +53,7 @@ public class SecurityConfig {
         configuration.addAllowedOrigin("http://localhost:3000");
         configuration.addAllowedOrigin("https://finjar-chi.vercel.app");
         configuration.addAllowedOrigin("https://finjar-frontend.vercel.app");
+        configuration.addAllowedOriginPattern("https://*.vercel.app"); // Allow any Vercel subdomain
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
         configuration.setMaxAge(3600L);
