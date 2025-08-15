@@ -46,35 +46,12 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ Define CORS settings
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        
-        List<String> origins = new ArrayList<>();
-        origins.add("http://localhost:5173");
-        origins.add("http://localhost:3000");
-        origins.add("https://finjar-chi.vercel.app");
-        origins.add("https://finjar-frontend.vercel.app");
-        config.setAllowedOrigins(origins);
-
-        List<String> methods = new ArrayList<>();
-        methods.add("GET");
-        methods.add("POST");
-        methods.add("PUT");
-        methods.add("DELETE");
-        methods.add("OPTIONS");
-        methods.add("HEAD");
-        config.setAllowedMethods(methods);
-
-        config.setAllowedHeaders(Collections.singletonList("*"));
-        config.setAllowCredentials(true);
-        config.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+    // ✅ CORS settings now handled by CorsFilter.java
+    // @Bean
+    // public CorsConfigurationSource corsConfigurationSource() {
+    //     // Configuration moved to CorsFilter for better control
+    //     return null;
+    // }
 
 
 
