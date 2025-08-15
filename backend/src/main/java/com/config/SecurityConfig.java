@@ -36,12 +36,12 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf().disable()
             .authorizeRequests()
-                .anyRequest().permitAll() // EMERGENCY: Allow everything
+                .antMatchers("/auth/login", "/api/users/register", "/health/**").permitAll()
+                .anyRequest().authenticated()
             .and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
-        // TEMPORARILY COMMENT OUT JWT FILTER
-        // http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
@@ -49,7 +49,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowCredentials(true);
-        configuration.addAllowedOriginPattern("*"); // Allow all origins temporarily
+        configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedOrigin("http://localhost:3000");
+        configuration.addAllowedOrigin("https://finjar-chi.vercel.app");
+        configuration.addAllowedOrigin("https://finjar-frontend.vercel.app");
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
         configuration.setMaxAge(3600L);

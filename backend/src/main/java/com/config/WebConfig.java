@@ -9,10 +9,15 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // Configure CORS for all endpoints - temporary permissive setting
+        // Configure CORS for all endpoints
         registry.addMapping("/**")
-            .allowedOriginPatterns("*")
-            .allowedMethods("*")
+            .allowedOrigins(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://finjar-chi.vercel.app",
+                "https://finjar-frontend.vercel.app"
+            )
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD")
             .allowedHeaders("*")
             .allowCredentials(true)
             .maxAge(3600);
