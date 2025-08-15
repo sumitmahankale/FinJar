@@ -2,30 +2,55 @@
 
 echo "=== FinJar Backend Build Script ==="
 
-# Set up environment
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+# Update package list and install Java 11
+echo "Installing OpenJDK 11..."
+apt-get update -qq
+apt-get install -y openjdk-11-jdk-headless maven
+
+# Find and set JAVA_HOME
+export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
+echo "JAVA_HOME set to: $JAVA_HOME"
+
+# Set PATH to include Java
 export PATH=$JAVA_HOME/bin:$PATH
 
-# Install OpenJDK 11 if not available
-if ! command -v java &> /dev/null; then
-    echo "Installing OpenJDK 11..."
-    apt-get update
-    apt-get install -y openjdk-11-jdk
-fi
-
-# Display Java version
+# Verify Java installation
 echo "Java version:"
 java -version
+echo "Maven version:"
+mvn -version
 
-# Navigate to correct directory and build
+# Navigate to correct directory and list contents
 echo "Current directory: $(pwd)"
 echo "Directory contents:"
 ls -la
 
-# Make mvnw executable and build
-chmod +x mvnw
-echo "Building Spring Boot application..."
-./mvnw clean package -DskipTests
+# Check if pom.xml exists
+if [ ! -f "pom.xml" ]; then
+    echo "ERROR: pom.xml not found in current directory!"
+    echo "Available files:"
+    ls -la
+    exit 1
+fi
 
-echo "Build completed! JAR file:"
-ls -la target/FinJar-0.0.1-SNAPSHOT.jar
+# Make mvnw executable if it exists, otherwise use system maven
+if [ -f "mvnw" ]; then
+    echo "Using Maven wrapper..."
+    chmod +x mvnw
+    ./mvnw clean package -DskipTests -Dmaven.compiler.source=11 -Dmaven.compiler.target=11
+else
+    echo "Using system Maven..."
+    mvn clean package -DskipTests -Dmaven.compiler.source=11 -Dmaven.compiler.target=11
+fi
+
+# Check build result
+if [ -f "target/FinJar-0.0.1-SNAPSHOT.jar" ]; then
+    echo "✅ Build completed successfully!"
+    echo "JAR file details:"
+    ls -la target/FinJar-0.0.1-SNAPSHOT.jar
+else
+    echo "❌ Build failed - JAR file not found!"
+    echo "Target directory contents:"
+    ls -la target/ || echo "Target directory does not exist"
+    exit 1
+fi
