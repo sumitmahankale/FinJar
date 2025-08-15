@@ -36,8 +36,7 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ Explicit CORS config
             .csrf().disable()
             .authorizeRequests()
-                .antMatchers("/auth/login", "/api/users/register", "/health/**").permitAll()
-                .anyRequest().authenticated()
+                .anyRequest().permitAll() // TEMPORARY: Allow all requests
             .and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
