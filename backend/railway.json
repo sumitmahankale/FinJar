@@ -1,15 +1,8 @@
 {
-  "name": "finjar-backend",
   "build": {
-    "commands": [
-      "echo 'Building with Maven...'",
-      "./mvnw clean package -DskipTests"
-    ]
+    "builder": "NIXPACKS"
   },
-  "start": {
-    "command": "java -Dserver.port=$PORT -Dspring.profiles.active=prod -jar target/FinJar-0.0.1-SNAPSHOT.jar"
-  },
-  "env": {
-    "SPRING_PROFILES_ACTIVE": "prod"
+  "deploy": {
+    "startCommand": "java -Dserver.port=$PORT -Dspring.profiles.active=prod -jar target/FinJar-0.0.1-SNAPSHOT.jar"
   }
 }
