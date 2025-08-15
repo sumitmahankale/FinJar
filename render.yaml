@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: finjar-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: finjar-mysql
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: finjar-mysql
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: finjar-mysql
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "http://localhost:5173,https://finjar-chi.vercel.app"
