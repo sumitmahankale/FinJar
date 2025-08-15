@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import config from '../config/config.js';
 
 export default function FinJarLogin({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -69,8 +70,8 @@ export default function FinJarLogin({ isDarkMode = false }) {
     setIsLoading(true);
     
     try {
-      // Use the correct backend URL (assuming Spring Boot runs on port 8080)
-      const response = await fetch('http://localhost:8080/auth/login', {
+      // Use the configured backend URL
+      const response = await fetch(`${config.API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

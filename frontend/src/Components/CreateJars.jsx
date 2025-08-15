@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import config from '../config/config.js';
 import { 
   PiggyBank, 
   Plus, 
@@ -105,7 +106,7 @@ const CreateJars = ({ isDarkMode = false, onNavigateBack }) => {
 
       console.log('Creating jar:', jarData);
 
-      const response = await fetch('http://localhost:8080/api/jars', {
+      const response = await fetch(`${config.API_BASE_URL}/api/jars`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

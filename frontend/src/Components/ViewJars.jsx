@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import config from '../config/config.js';
 
 import { 
   PiggyBank, 
@@ -60,7 +61,7 @@ const deleteJar = async (jarId) => {
     console.log('Deleting jar:', jarId);
     try {
       console.log('Fetching deposits to delete for jar:', jarId);
-      const depositsResponse = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
+      const depositsResponse = await fetch(`${config.API_BASE_URL}/api/deposits/jar/${jarId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -103,7 +104,7 @@ const deleteJar = async (jarId) => {
               for (const deposit of depositsToDelete) {
                 try {
                   console.log(`Deleting deposit ${deposit.id}`);
-                  const deleteDepositResponse = await fetch(`http://localhost:8080/api/deposits/${deposit.id}`, {
+                  const deleteDepositResponse = await fetch(`${config.API_BASE_URL}/api/deposits/${deposit.id}`, {
                     method: 'DELETE',
                     headers: {
                       'Authorization': `Bearer ${token}`,
@@ -145,7 +146,7 @@ const deleteJar = async (jarId) => {
 
     // Step 2: Now delete the jar
     console.log('Now attempting to delete the jar...');
-    const response = await fetch(`http://localhost:8080/api/jars/${jarId}`, {
+    const response = await fetch(`${config.API_BASE_URL}/api/jars/${jarId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -247,7 +248,7 @@ const deleteJar = async (jarId) => {
 
       console.log('Fetching jars...');
 
-      const response = await fetch('http://localhost:8080/api/jars', {
+      const response = await fetch(`${config.API_BASE_URL}/api/jars`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -383,7 +384,7 @@ const deleteJar = async (jarId) => {
       }
     } catch (err) {
       console.error('Network error fetching jars:', err);
-      setError('Unable to connect to server. Please check if the backend is running on localhost:8080');
+      setError(`Unable to connect to server. Please check if the backend is running on ${config.API_BASE_URL}`);  
     } finally {
       setLoading(false);
       if (showRefreshing) setRefreshing(false);
@@ -398,7 +399,7 @@ const deleteJar = async (jarId) => {
       const token = getAuthToken();
       if (!token) return;
 
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${jarId}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/deposits/jar/${jarId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -522,7 +523,7 @@ const deleteJar = async (jarId) => {
       
       console.log('Adding deposit:', depositData);
       
-      const response = await fetch(`http://localhost:8080/api/deposits/jar/${selectedJar.id}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/deposits/jar/${selectedJar.id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -603,7 +604,7 @@ const deleteJar = async (jarId) => {
       const token = getAuthToken();
       if (!token) return;
 
-      const response = await fetch(`http://localhost:8080/api/deposits/${depositId}`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/deposits/${depositId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

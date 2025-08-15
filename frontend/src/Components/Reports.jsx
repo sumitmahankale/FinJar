@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import config from '../config/config.js';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -50,7 +51,7 @@ const Reports = ({ isDarkMode = false }) => {
 
       console.log('Fetching jars for reports...');
 
-      const response = await fetch('http://localhost:8080/api/jars', {
+      const response = await fetch(`${config.API_BASE_URL}/api/jars`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -145,7 +146,7 @@ const Reports = ({ isDarkMode = false }) => {
       
       for (const jar of jars) {
         try {
-          const response = await fetch(`http://localhost:8080/api/deposits/jar/${jar.id}`, {
+          const response = await fetch(`${config.API_BASE_URL}/api/deposits/jar/${jar.id}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
