@@ -84,7 +84,8 @@ export default function FinJarLogin({ isDarkMode = false }) {
           showAlert('error', 'Login Failed', 'No token returned.');
         }
       } catch (err) {
-        showAlert('error', 'Login Failed', err.message || 'Invalid credentials');
+        const backendMsg = err && (err.message || (err.details && err.details.message));
+        showAlert('error', 'Login Failed', backendMsg || 'Invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);

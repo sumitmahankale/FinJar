@@ -36,20 +36,37 @@ class ApiService {
 
     try {
       const response = await fetch(url, requestOptions);
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          throw new Error('Session expired');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+      const status = response.status;
+      let text;
+      try {
+        text = await response.text();
+      } catch {
+        text = '';
+      }
+      let data = {};
+      if (text) {
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
       }
 
-  const text = await response.text();
-  if (!text) return {};
-  try { return JSON.parse(text); } catch { return { raw: text }; }
+      if (!response.ok) {
+        const backendMsg = data && (data.message || data.error || data.msg);
+        // Determine if this is an auth endpoint (login/register) where we should NOT redirect automatically
+        const isAuthAttempt = endpoint.includes('/auth/login') || endpoint.includes('/auth/register');
+        if (status === 401 && !isAuthAttempt) {
+          // Only redirect for protected resource failures, not for failed login attempts
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            const err = new Error(backendMsg || 'Session expired');
+            err.status = status;
+            err.details = data;
+            throw err;
+        }
+        const err = new Error(backendMsg || `HTTP ${status}`);
+        err.status = status;
+        err.details = data;
+        throw err;
+      }
+      return data;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;

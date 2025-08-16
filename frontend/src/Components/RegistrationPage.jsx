@@ -106,7 +106,8 @@ export default function FinJarRegistration({ isDarkMode = false }) {
   // Redirect to login after brief delay so user sees success message
   setTimeout(() => navigate('/login'), 1500);
       } catch (err) {
-        showAlert('error', 'Registration Failed', err.message || 'Error during registration');
+        const backendMsg = err && (err.message || (err.details && err.details.message));
+        showAlert('error', 'Registration Failed', backendMsg || 'Error during registration');
       }
     } catch (error) {
       console.error('Registration error:', error);
