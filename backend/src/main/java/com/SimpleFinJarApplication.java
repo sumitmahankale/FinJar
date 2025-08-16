@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
 @SpringBootApplication
 @RestController
@@ -45,7 +47,10 @@ public class SimpleFinJarApplication {
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("message", "Login successful");
-        response.put("token", "mock-jwt-token-12345");
+    String email = loginRequest != null && loginRequest.getOrDefault("email", null) instanceof String ?
+        (String) loginRequest.get("email") : "john@example.com";
+    String token = generateMockJwt(email, "John Doe");
+    response.put("token", token);
         
         Map<String, Object> user = new HashMap<>();
         user.put("id", 1);
@@ -67,7 +72,12 @@ public class SimpleFinJarApplication {
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("message", "Registration successful");
-        response.put("token", "mock-jwt-token-67890");
+    String email = registerRequest != null && registerRequest.getOrDefault("email", null) instanceof String ?
+        (String) registerRequest.get("email") : "newuser@example.com";
+    String name = registerRequest != null && registerRequest.getOrDefault("name", null) instanceof String ?
+        (String) registerRequest.get("name") : "New User";
+    String token = generateMockJwt(email, name);
+    response.put("token", token);
         
         Map<String, Object> user = new HashMap<>();
         user.put("id", 2);
@@ -82,6 +92,24 @@ public class SimpleFinJarApplication {
     @PostMapping("/auth/register")
     public ResponseEntity<Map<String, Object>> registerAlias(@RequestBody(required = false) Map<String, Object> registerRequest) {
         return register(registerRequest);
+    }
+
+    // --- Helper to build a frontend-parseable mock JWT (header.payload.signature) ---
+    private String generateMockJwt(String email, String name) {
+        long nowSeconds = System.currentTimeMillis() / 1000L;
+        long exp = nowSeconds + 3600; // 1h expiry
+        String headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+        String payloadJson = String.format("{\"sub\":\"%s\",\"name\":\"%s\",\"email\":\"%s\",\"iat\":%d,\"exp\":%d}",
+                email, name.replace("\"", "'"), email, nowSeconds, exp);
+        String header = base64Url(headerJson.getBytes(StandardCharsets.UTF_8));
+        String payload = base64Url(payloadJson.getBytes(StandardCharsets.UTF_8));
+        // Mock signature (not cryptographically valid)
+        String signature = base64Url("mock-signature".getBytes(StandardCharsets.UTF_8));
+        return header + "." + payload + "." + signature;
+    }
+
+    private String base64Url(byte[] input) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(input);
     }
     
     @GetMapping("/api/jars")
