@@ -1,6 +1,6 @@
-# **FinJar**
+# **FinJar (Minimal Prototype)**
 
-**FinJar** is a professional fintech backend application built with Spring Boot that empowers users to develop disciplined saving habits through digital savings jars. The platform enables users to create multiple savings goals, make micro-deposits, and track their progress toward financial objectives with comprehensive transaction logging and real-time analytics.
+Current state: a deliberately simplified Spring Boot + React prototype focused on rapid deploy & UI integration. It exposes mock authentication (unsigned JWT-like tokens), in‑memory jars & deposits CRUD (non‑persistent), and basic version / health endpoints. The earlier README language described a fully featured, secure, database‑backed system; that is part of the roadmap but not yet implemented in this branch.
 
 <br>
 <img width="1897" height="908" alt="image" src="https://github.com/user-attachments/assets/140469e5-08b5-4da4-871f-c7f55e1d21c0" />
@@ -16,45 +16,41 @@ The application follows modern software architecture principles with a clean sep
 
 ---
 
-## **Key Features**
+## **Implemented Features (Prototype)**
+| Area | Implemented Now | Notes |
+|------|-----------------|-------|
+| Auth | Mock login/register returning unsigned JWT-like token | Token structure only; not cryptographically signed |
+| Jars | In-memory list/create/update/delete + progress | Data lost on restart |
+| Deposits | In-memory create/list/update/delete + jar amount recalculation | No pagination |
+| Versioning | `/api/version` endpoint | Manual constant bump |
+| Health | `/health`, `/api/health` | Basic status only |
+| CORS | Allowlisted frontend origins | To be hardened later |
 
-### **Core Functionality**
-- **Multi-Goal Savings Management**: Create unlimited savings jars with custom names, target amounts, and deadlines
-- **Micro-Deposit System**: Make small, frequent deposits to encourage consistent saving behavior
-- **Comprehensive Transaction Logging**: Track every deposit with timestamps, amounts, and optional descriptions
-- **Progress Visualization**: Monitor savings progress with intuitive progress bars and completion percentages
-- **Goal Achievement Tracking**: Celebrate milestones and completed savings objectives
-
-### **Security & Authentication**
-- **JWT-Based Authentication**: Secure token-based user authentication and session management
-- **Role-Based Authorization**: Granular access control for different user types and permissions
-- **Password Encryption**: Industry-standard password hashing and security protocols
-- **API Security**: Protected endpoints with proper authentication middleware
-
-### **User Experience**
-- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
-- **Dark/Light Mode Toggle**: Customizable UI themes for user preference
-- **Intuitive Navigation**: Clean, modern interface built with Tailwind CSS
-- **Real-Time Updates**: Instant reflection of deposits and goal progress
+## **Not Yet Implemented**
+- Real JWT signing & refresh tokens
+- Persistent storage (H2/Postgres/MySQL)
+- User accounts & password hashing
+- Role-based authorization
+- Comprehensive validation & error codes
+- Pagination / filtering / sorting
+- Rate limiting & audit logging
+- CI tests & coverage
+- Proper 404/exception mapping (will be added soon)
 
 ---
 
 ## **Technology Stack**
 
-### **Backend Architecture**
-- **Java 17**: Latest LTS version with modern language features and performance improvements
-- **Spring Boot 3.x**: Enterprise-grade framework for rapid application development
-- **Spring Security**: Comprehensive security framework with JWT implementation
-- **Hibernate/JPA**: Object-relational mapping for efficient database operations
-- **MySQL**: Reliable relational database for data persistence
-- **Maven**: Dependency management and build automation
+### **Backend (Prototype)**
+- Java 8 (will upgrade later)
+- Spring Boot 2.7.x (web + actuator only)
+- No database / no JPA yet
+- Maven build
 
 ### **Frontend Stack**
-- **React.js 18**: Modern component-based UI library with hooks and context
-- **Tailwind CSS**: Utility-first CSS framework for rapid UI development
-- **React Router**: Client-side routing for single-page application navigation
-- **Axios**: HTTP client for API communication with interceptors
-- **Lucide Icons**: Clean, consistent icon library for modern interfaces
+- React + Vite + Tailwind
+- Native fetch wrapper service (`apiService.js`)
+- Token stored in `localStorage`
 
 ### **Development Tools**
 - **Spring Boot DevTools**: Hot reload and development utilities
@@ -66,14 +62,13 @@ The application follows modern software architecture principles with a clean sep
 
 ## **Installation & Setup**
 
-### **Prerequisites**
-- Java 17 or higher
-- Node.js 16+ and npm
-- MySQL 8.0+
+### **Prerequisites (Prototype)**
+- Java 8+ (will move to 17+ soon)
+- Node.js 18+
 - Maven 3.6+
 - Git
 
-### **Backend Configuration**
+### **Backend Run (Prototype)**
 
 1. **Clone and Navigate to Repository**
    ```bash
@@ -81,43 +76,13 @@ The application follows modern software architecture principles with a clean sep
    cd FinJar/finjar-backend
    ```
 
-2. **Database Setup**
-   ```sql
-   CREATE DATABASE finjar;
-   CREATE USER 'finjar_user'@'localhost' IDENTIFIED BY 'your_password';
-   GRANT ALL PRIVILEGES ON finjar.* TO 'finjar_user'@'localhost';
-   FLUSH PRIVILEGES;
-   ```
-
-3. **Configure Application Properties**
-   ```properties
-   # Database Configuration
-   spring.datasource.url=jdbc:mysql://localhost:3306/finjar
-   spring.datasource.username=finjar_user
-   spring.datasource.password=your_password
-   spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
-
-   # JPA/Hibernate Configuration
-   spring.jpa.hibernate.ddl-auto=update
-   spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect
-   spring.jpa.show-sql=false
-
-   # JWT Configuration
-   jwt.secret=your_256_bit_secret_key_here
-   jwt.expiration=86400000
-
-   # Server Configuration
-   server.port=8080
-   server.servlet.context-path=/api
-   ```
-
-4. **Build and Run Application**
+2. **Build and Run Application**
    ```bash
    mvn clean install
    mvn spring-boot:run
    ```
 
-The backend server will start at `http://localhost:8080/api`
+Server (default) starts at `http://localhost:8080` (API paths under `/api/...`).
 
 ### **Frontend Configuration**
 
@@ -132,10 +97,10 @@ The backend server will start at `http://localhost:8080/api`
    ```
 
 3. **Configure Environment Variables**
-   Create `.env` file:
+   For Vite (example `.env.local`):
    ```env
-   REACT_APP_API_BASE_URL=http://localhost:8080/api
-   REACT_APP_ENV=development
+   VITE_API_BASE_URL=http://localhost:8080
+   VITE_ENV=development
    ```
 
 4. **Start Development Server**
@@ -149,65 +114,46 @@ The frontend application will start at `http://localhost:3000`
 
 ## **API Documentation**
 
-### **Authentication Endpoints**
+### **Current Prototype API (Implemented)**
 ```
-POST /api/auth/register - User registration
-POST /api/auth/login    - User authentication
-POST /api/auth/refresh  - Token refresh
-```
+GET   /api/health
+GET   /api/version
 
-### **Savings Jar Endpoints**
-```
-GET    /api/jars          - Retrieve user's savings jars
-POST   /api/jars          - Create new savings jar
-PUT    /api/jars/{id}     - Update savings jar
-DELETE /api/jars/{id}     - Delete savings jar
-```
+POST  /api/auth/login
+POST  /api/auth/register
+POST  /api/auth/logout (mock, token structure only)
 
-### **Transaction Endpoints**
-```
-GET  /api/jars/{id}/transactions - Get jar transaction history
-POST /api/jars/{id}/deposit      - Make deposit to jar
+GET   /api/user/profile
+PUT   /api/user/update
+
+GET   /api/jars
+POST  /api/jars
+PUT   /api/jars/{id}
+DELETE /api/jars/{id}
+POST  /api/jars/{id}/recalc
+
+GET   /api/deposits?jarId={optional}
+POST  /api/deposits
+PUT   /api/deposits/{id}
+DELETE /api/deposits/{id}
 ```
 
 ---
 
 ## **Project Architecture**
 
-### **Backend Structure**
+### **Planned Full Backend Structure (Roadmap)**
 ```
-finjar-backend/
-├── src/main/java/com/finjar/
-│   ├── config/
-│   │   ├── SecurityConfig.java
-│   │   ├── JwtConfig.java
-│   │   └── DatabaseConfig.java
-│   ├── controller/
-│   │   ├── AuthController.java
-│   │   ├── JarController.java
-│   │   └── TransactionController.java
-│   ├── dto/
-│   │   ├── request/
-│   │   └── response/
-│   ├── entity/
-│   │   ├── User.java
-│   │   ├── SavingsJar.java
-│   │   └── Transaction.java
-│   ├── repository/
-│   │   ├── UserRepository.java
-│   │   ├── SavingsJarRepository.java
-│   │   └── TransactionRepository.java
-│   ├── service/
-│   │   ├── AuthService.java
-│   │   ├── JarService.java
-│   │   └── TransactionService.java
-│   └── util/
-│       ├── JwtUtil.java
-│       └── ResponseUtil.java
-└── src/main/resources/
-    ├── application.properties
-    ├── application-dev.properties
-    └── application-prod.properties
+backend/
+   src/main/java/com/finjar/
+      config/ (SecurityConfig, JwtConfig, PersistenceConfig)
+      controller/ (AuthController, JarController, DepositController)
+      dto/ (request/, response/)
+      entity/ (User, Jar, Deposit)
+      repository/ (UserRepository, JarRepository, DepositRepository)
+      service/ (AuthService, JarService, DepositService)
+      util/ (JwtUtil, ResponseFactory)
+      exception/ (GlobalExceptionHandler, custom exceptions)
 ```
 
 ### **Frontend Structure**
@@ -247,49 +193,8 @@ finjar-frontend/
 
 ---
 
-## **Database Schema**
-
-### **Users Table**
-```sql
-CREATE TABLE users (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50),
-    last_name VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
-
-### **Savings Jars Table**
-```sql
-CREATE TABLE savings_jars (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    target_amount DECIMAL(10,2) NOT NULL,
-    current_amount DECIMAL(10,2) DEFAULT 0.00,
-    description TEXT,
-    target_date DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-```
-
-### **Transactions Table**
-```sql
-CREATE TABLE transactions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    jar_id BIGINT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    description VARCHAR(255),
-    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (jar_id) REFERENCES savings_jars(id)
-);
-```
+## **Planned Database Schema (Roadmap)**
+Will be introduced once persistence layer is added (initially H2 -> Postgres/MySQL). Draft tables will include `users`, `savings_jars`, `deposits`.
 
 ---
 
@@ -366,14 +271,17 @@ We welcome contributions from the community! Here's how you can help:
 
 ## **Roadmap**
 
-### **Upcoming Features**
-- **Automated Savings**: Schedule recurring deposits
-- **Savings Categories**: Organize jars by categories (emergency, vacation, etc.)
-- **Goal Sharing**: Share savings goals with family/friends
-- **Interest Calculation**: Simulate interest earnings on savings
-- **Export Functionality**: Download transaction reports
-- **Mobile App**: Native iOS and Android applications
-- **Bank Integration**: Connect real bank accounts for automatic transfers
+### **Upcoming Features (Prioritized)**
+1. Real JWT signing & refresh
+2. Persistence (H2 + migration to Postgres)
+3. Validation & global error handling
+4. Pagination & filtering
+5. Rate limiting & structured logging
+6. Automated / scheduled deposits
+7. Categories & goal sharing
+8. Export & reporting
+9. Mobile apps
+10. Bank integrations
 
 ---
 
