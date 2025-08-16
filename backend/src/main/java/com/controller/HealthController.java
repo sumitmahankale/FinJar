@@ -16,12 +16,19 @@ public class HealthController {
         return "OK";
     }
     
+    @GetMapping("/ping")
+    public String ping() {
+        return "pong";
+    }
+    
     @GetMapping("/status")
     public Object status() {
         return new Object() {
             public final String status = "UP";
             public final String application = "FinJar Backend";
             public final long timestamp = System.currentTimeMillis();
+            public final String port = System.getProperty("server.port", "8080");
+            public final String address = System.getProperty("server.address", "0.0.0.0");
         };
     }
 }

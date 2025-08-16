@@ -3,8 +3,13 @@
 echo "=== FinJar Startup Script ==="
 echo "PORT: ${PORT:-8080}"
 echo "SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}"
-echo "Java Version:"
-java -version
+
+# Set environment variables
+export SERVER_PORT=${PORT:-8080}
+export SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+
+echo "SERVER_PORT: $SERVER_PORT"
+echo "Starting application on all interfaces (0.0.0.0:$SERVER_PORT)"
 
 # Check if JAR file exists
 if [ ! -f "app.jar" ]; then
@@ -13,11 +18,10 @@ if [ ! -f "app.jar" ]; then
     exit 1
 fi
 
-echo "Starting application..."
-
-# Start the application with proper port configuration
-exec java -Dserver.port=${PORT:-8080} \
-          -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod} \
+# Start the application with explicit server configuration
+exec java -Dserver.port=$SERVER_PORT \
+          -Dserver.address=0.0.0.0 \
+          -Dspring.profiles.active=$SPRING_PROFILES_ACTIVE \
           -Xmx512m -Xms256m \
           -XX:+UseG1GC \
           -XX:MaxGCPauseMillis=200 \
