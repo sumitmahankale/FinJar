@@ -1,10 +1,6 @@
 services:
   - type: web
-    name: finjar-backend
+    name: finjar-minimal
     env: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    healthCheckPath: /health
-    envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: debug
