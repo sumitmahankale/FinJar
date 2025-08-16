@@ -63,7 +63,7 @@ public class SimpleFinJarApplication {
     public ResponseEntity<Object> apiHealth() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "UP");
-        response.put("message", "FinJar API is running");
+        response.put("message", "FinJar API is fully operational");
         response.put("timestamp", System.currentTimeMillis());
         return ResponseEntity.ok(response);
     }
