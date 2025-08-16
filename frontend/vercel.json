@@ -7,7 +7,7 @@
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "https://finjar-backend.onrender.com",
+    "VITE_API_BASE_URL": "https://finjar.onrender.com",
     "VITE_ENV": "production",
     "NODE_ENV": "production"
   }
