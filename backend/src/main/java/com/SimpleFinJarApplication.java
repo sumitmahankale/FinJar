@@ -2,6 +2,7 @@ package com;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,10 +18,10 @@ public class SimpleFinJarApplication {
         System.out.println("WORKING DIR: " + System.getProperty("user.dir"));
         
         try {
-            SpringApplication app = SpringApplication.run(SimpleFinJarApplication.class, args);
+            ConfigurableApplicationContext context = SpringApplication.run(SimpleFinJarApplication.class, args);
             System.out.println("=== APPLICATION STARTED SUCCESSFULLY ===");
-            System.out.println("Active profiles: " + String.join(",", app.getEnvironment().getActiveProfiles()));
-            System.out.println("Server port: " + app.getEnvironment().getProperty("server.port"));
+            System.out.println("Active profiles: " + String.join(",", context.getEnvironment().getActiveProfiles()));
+            System.out.println("Server port: " + context.getEnvironment().getProperty("server.port"));
         } catch (Exception e) {
             System.err.println("=== STARTUP FAILED ===");
             e.printStackTrace();
