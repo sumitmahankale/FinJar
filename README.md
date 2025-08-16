@@ -1,319 +1,150 @@
-# **FinJar (Minimal Prototype)**
+# FinJar (Prototype – Active Development)
 
-Current state: a deliberately simplified Spring Boot + React prototype focused on rapid deploy & UI integration. It exposes mock authentication (unsigned JWT-like tokens), in‑memory jars & deposits CRUD (non‑persistent), and basic version / health endpoints. The earlier README language described a fully featured, secure, database‑backed system; that is part of the roadmap but not yet implemented in this branch.
+Lightweight Spring Boot + React prototype for savings “jars”. Recently upgraded from a mock auth to a real signed JWT (HS256 via `jjwt`) containing a `userId` claim with per‑user data isolation. All data is still in-memory (lost on restart). Registration now requires an explicit login (no more auto sign‑in). Reports screen fixed to use the unified API service.
 
 <br>
-<img width="1897" height="908" alt="image" src="https://github.com/user-attachments/assets/140469e5-08b5-4da4-871f-c7f55e1d21c0" />
+<img width="1897" alt="ui" src="https://github.com/user-attachments/assets/140469e5-08b5-4da4-871f-c7f55e1d21c0" />
 <br>
 
 ---
 
-## **Overview**
+## Current Feature Matrix
+| Area | Status | Notes |
+|------|--------|-------|
+| Authentication | Signed JWT (HS256) with `email`, `name`, `userId`, 1h expiry | Secret from `FINJAR_JWT_SECRET` (fallback default) |
+| Passwords | Simple hash (Java `hashCode` hex) | Needs BCrypt (roadmap) |
+| Users | In-memory store; register, login, profile update | No persistence / uniqueness enforced by map |
+| Jars | Per-user CRUD + progress % | Stored in memory; no pagination |
+| Deposits | Per-user CRUD; updates jar balance & progress | In-memory; no validation beyond presence |
+| Reports | Aggregates totals, monthly trend, CSV export | Uses current in-memory data |
+| Errors (frontend) | Backend message surfaced on login/register | No standardized API error schema yet |
+| CORS | Allowlist of deployed frontend origins | To refine per env |
+| Health / Version | `/health`, `/api/health`, `/api/version` | Manual version constant |
 
-FinJar addresses the common challenge of building consistent saving habits by gamifying the savings process through virtual "jars" that represent specific financial goals. Whether saving for an emergency fund, vacation, or major purchase, users can create dedicated jars and make incremental progress through small, manageable deposits.
+### Key Recent Changes
+* Real JWT signing & validation (replacing unsigned structure).
+* Added per-user isolation for jars & deposits (ownership enforced on all CRUD).
+* Registration flow: removed auto-login – user must log in explicitly.
+* Frontend error handling: surfaces backend messages (wrong password, duplicate email, expired session).
+* Reports component refactored to use central `apiService` (removed brittle regex parsing logic).
 
-The application follows modern software architecture principles with a clean separation between the Spring Boot backend API and React frontend, ensuring scalability, maintainability, and a seamless user experience.
-
----
-
-## **Implemented Features (Prototype)**
-| Area | Implemented Now | Notes |
-|------|-----------------|-------|
-| Auth | Mock login/register returning unsigned JWT-like token | Token structure only; not cryptographically signed |
-| Jars | In-memory list/create/update/delete + progress | Data lost on restart |
-| Deposits | In-memory create/list/update/delete + jar amount recalculation | No pagination |
-| Versioning | `/api/version` endpoint | Manual constant bump |
-| Health | `/health`, `/api/health` | Basic status only |
-| CORS | Allowlisted frontend origins | To be hardened later |
-
-## **Not Yet Implemented**
-- Real JWT signing & refresh tokens
-- Persistent storage (H2/Postgres/MySQL)
-- User accounts & password hashing
-- Role-based authorization
-- Comprehensive validation & error codes
-- Pagination / filtering / sorting
-- Rate limiting & audit logging
-- CI tests & coverage
-- Proper 404/exception mapping (will be added soon)
-
----
-
-## **Technology Stack**
-
-### **Backend (Prototype)**
-- Java 8 (will upgrade later)
-- Spring Boot 2.7.x (web + actuator only)
-- No database / no JPA yet
-- Maven build
-
-### **Frontend Stack**
-- React + Vite + Tailwind
-- Native fetch wrapper service (`apiService.js`)
-- Token stored in `localStorage`
-
-### **Development Tools**
-- **Spring Boot DevTools**: Hot reload and development utilities
-- **MySQL Workbench**: Database design and administration
-- **Postman**: API testing and documentation
-- **npm/yarn**: Package management for frontend dependencies
+### Current Limitations / Risks
+* Weak password hashing (must move to BCrypt quickly).
+* All data volatile (restart wipes everything).
+* No refresh tokens; access token lifetime fixed at 1 hour.
+* No rate limiting / brute-force protection.
+* No input length / numeric validation server-side beyond minimal checks.
+* Monetary values use `double` (precision issues possible) – should migrate to `BigDecimal`.
+* Single large controller file (`SimpleFinJarApplication`) – needs layering.
 
 ---
 
-## **Installation & Setup**
+## Quick Start (Prototype)
+Backend prerequisites: Java 8+ (will upgrade to 17+), Maven.
 
-### **Prerequisites (Prototype)**
-- Java 8+ (will move to 17+ soon)
-- Node.js 18+
-Current state: a deliberately simplified Spring Boot + React prototype focused on rapid deploy & UI integration. Now supports real per-user authentication (JWT with userId), password validation, and user-specific jars & deposits (in-memory, non-persistent). The earlier README language described a fully featured, secure, database‑backed system; that is part of the roadmap but not yet implemented in this branch.
-- Git
-| Jars | In-memory list/create/update/delete + progress, per-user | Data lost on restart |
-### **Backend Run (Prototype)**
-| Deposits | In-memory create/list/update/delete + jar amount recalculation, per-user | No pagination |
-
-## **Not Yet Implemented**
-- Password hashing (currently simple hash, upgrade to BCrypt recommended)
-- JWT refresh tokens
-- Persistent storage (H2/Postgres/MySQL)
-- Role-based authorization
-- Comprehensive validation & error codes
-- Pagination / filtering / sorting
-- Rate limiting & audit logging
-- CI tests & coverage
-- Proper 404/exception mapping (will be added soon)
-   mvn spring-boot:run
-   ```
-
-Server (default) starts at `http://localhost:8080` (API paths under `/api/...`).
-POST  /api/auth/login         # Requires email & password
-POST  /api/auth/register      # Requires name, email, password
-POST  /api/auth/logout        # (mock, token structure only)
-1. **Navigate to Frontend Directory**
-   ```bash
-   cd ../finjar-frontend
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables**
-   For Vite (example `.env.local`):
-   ```env
-   VITE_API_BASE_URL=http://localhost:8080
-## **Roadmap**
-
-### **Upcoming Features (Prioritized)**
-1. Password hashing (BCrypt)
-2. JWT refresh tokens
-3. Persistence (H2 + migration to Postgres)
-4. Validation & global error handling
-5. Pagination & filtering
-6. Rate limiting & structured logging
-7. Automated / scheduled deposits
-8. Categories & goal sharing
-9. Export & reporting
-10. Mobile apps
-11. Bank integrations
----
-
-## **API Documentation**
-
-### **Current Prototype API (Implemented)**
+```bash
+cd backend
+mvn spring-boot:run
 ```
-GET   /api/health
-GET   /api/version
+Default API base: `http://localhost:8080`.
 
-POST  /api/auth/login
-POST  /api/auth/register
-POST  /api/auth/logout (mock, token structure only)
+Frontend prerequisites: Node 18+.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Configure (optional) `frontend/src/config/config.js` or a Vite env (`VITE_API_BASE_URL`).
 
-GET   /api/user/profile
-PUT   /api/user/update
+Auth Flow:
+1. Register (creates user; DOES NOT log you in).
+2. You are redirected to login screen.
+3. Login -> token stored under `localStorage.token` (legacy `authToken` still accepted).
+4. Use dashboard & reports; after 1h token expires → redirected to login on protected API calls.
 
-GET   /api/jars
-POST  /api/jars
-PUT   /api/jars/{id}
+Logout currently just removes the token client-side (no server blacklist).
+
+---
+
+## API (Implemented)
+```
+GET    /api/version
+GET    /health
+GET    /api/health
+
+POST   /api/auth/register      (name, email, password)
+POST   /api/auth/login         (email, password)
+POST   /api/auth/logout        (placeholder – no server invalidation)
+
+GET    /api/user/profile       (Bearer token)
+PUT    /api/user/update        (name/email)
+
+GET    /api/jars               (Bearer; ?flat=1 optional)
+POST   /api/jars               (name/targetAmount[,description])
+PUT    /api/jars/{id}
 DELETE /api/jars/{id}
-POST  /api/jars/{id}/recalc
+POST   /api/jars/{id}/recalc   (recomputes current & progress)
 
-GET   /api/deposits?jarId={optional}
-POST  /api/deposits
-PUT   /api/deposits/{id}
+GET    /api/deposits           (?jarId= optional)
+GET    /api/deposits/jar/{jarId} (?flat param variant)
+POST   /api/deposits           (jarId, amount[,description])
+POST   /api/deposits/jar/{jarId} (amount[,description])
+PUT    /api/deposits/{id}
 DELETE /api/deposits/{id}
 ```
 
+Legacy alias endpoints (`/auth/*`, `/api/users/*`) still exist for older frontend bundles and will be removed after confirmation.
+
 ---
 
-## **Project Architecture**
+## Roadmap (Prioritized Next)
+1. Secure password hashing (BCrypt `PasswordEncoder`).
+2. Persistence layer (H2 dev → Postgres prod) + JPA entities.
+3. Validation & global error handler (`@ControllerAdvice`, Bean Validation).
+4. Refresh tokens & shorter access token (15m) strategy.
+5. Replace `double` with `BigDecimal` for all monetary amounts.
+6. Split monolith controller into layered architecture (controller/service/repository/dto).
+7. Pagination & sorting for jars/deposits.
+8. Rate limiting (basic in-memory or bucket4j) + brute-force login protection.
+9. Structured logging + request correlation id.
+10. Automated tests (unit + integration) & CI config.
+11. Swagger/OpenAPI documentation.
+12. Optional: categories / scheduled (recurring) deposits.
 
-### **Planned Full Backend Structure (Roadmap)**
-```
-backend/
-   src/main/java/com/finjar/
-      config/ (SecurityConfig, JwtConfig, PersistenceConfig)
-      controller/ (AuthController, JarController, DepositController)
-      dto/ (request/, response/)
-      entity/ (User, Jar, Deposit)
-      repository/ (UserRepository, JarRepository, DepositRepository)
-      service/ (AuthService, JarService, DepositService)
-      util/ (JwtUtil, ResponseFactory)
-      exception/ (GlobalExceptionHandler, custom exceptions)
-```
+Later / Nice-to-have:
+* Sharing / collaboration.
+* Mobile clients.
+* Banking integrations.
 
-### **Frontend Structure**
+---
+
+## Planned Backend Structure (Future)
 ```
-finjar-frontend/
-├── public/
-├── src/
-│   ├── components/
-│   │   ├── common/
-│   │   │   ├── Header.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   └── LoadingSpinner.jsx
-│   │   ├── jar/
-│   │   │   ├── JarCard.jsx
-│   │   │   ├── JarForm.jsx
-│   │   │   └── JarList.jsx
-│   │   └── transaction/
-│   │       ├── TransactionForm.jsx
-│   │       └── TransactionHistory.jsx
-│   ├── pages/
-│   │   ├── Dashboard.jsx
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   └── JarDetails.jsx
-│   ├── services/
-│   │   ├── api.js
-│   │   ├── authService.js
-│   │   └── jarService.js
-│   ├── context/
-│   │   └── AuthContext.jsx
-│   ├── hooks/
-│   │   └── useAuth.js
-│   └── utils/
-│       ├── constants.js
-│       └── helpers.js
+com.finjar
+   config/
+   controller/
+   dto/
+   entity/
+   repository/
+   service/
+   security/
+   util/
+   exception/
 ```
 
 ---
 
-## **Planned Database Schema (Roadmap)**
-Will be introduced once persistence layer is added (initially H2 -> Postgres/MySQL). Draft tables will include `users`, `savings_jars`, `deposits`.
+## Contribution (Early Stage)
+Prototype is rapidly changing; PRs welcome for: BCrypt adoption, monetary type improvements, validation layer, modularization.
+
+Conventional commits preferred (feat, fix, docs, refactor, chore, test).
 
 ---
 
-## **Development Guidelines**
-
-### **Code Style & Conventions**
-- Follow Java naming conventions (camelCase for variables, PascalCase for classes)
-- Use meaningful variable and method names
-- Implement proper error handling with custom exceptions
-- Write comprehensive unit tests for service layer methods
-- Document API endpoints with proper HTTP status codes
-
-### **Git Workflow**
-- Create feature branches from `develop`
-- Use conventional commit messages
-- Submit pull requests for code review
-- Maintain clean commit history
-
-### **Testing Strategy**
-- Unit tests for service layer business logic
-- Integration tests for API endpoints
-- Frontend component testing with React Testing Library
-- End-to-end testing for critical user flows
+## License
+MIT – see `LICENSE`.
 
 ---
 
-## **Deployment**
-
-### **Production Considerations**
-- Configure environment-specific properties
-- Implement proper logging with centralized log management
-- Set up database connection pooling
-- Configure HTTPS/SSL certificates
-- Implement rate limiting and API throttling
-- Set up monitoring and health checks
-
-### **Docker Support**
-```dockerfile
-# Backend Dockerfile
-FROM openjdk:17-jdk-slim
-COPY target/finjar-backend-1.0.0.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
-
----
-
-## **Contributing**
-
-We welcome contributions from the community! Here's how you can help:
-
-### **Getting Started**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes following our coding standards
-4. Add tests for new functionality
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to your branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### **Contribution Guidelines**
-- Ensure all tests pass before submitting PR
-- Update documentation for any API changes
-- Follow existing code style and conventions
-- Include proper error handling and validation
-- Add appropriate unit and integration tests
-
-### **Issue Reporting**
-- Use issue templates for bug reports and feature requests
-- Provide detailed reproduction steps for bugs
-- Include system information and environment details
-
----
-
-## **Roadmap**
-
-### **Upcoming Features (Prioritized)**
-1. Real JWT signing & refresh
-2. Persistence (H2 + migration to Postgres)
-3. Validation & global error handling
-4. Pagination & filtering
-5. Rate limiting & structured logging
-6. Automated / scheduled deposits
-7. Categories & goal sharing
-8. Export & reporting
-9. Mobile apps
-10. Bank integrations
-
----
-
-## **Support & Documentation**
-
-### **Resources**
-- **Wiki**: Comprehensive guides and tutorials
-- **API Documentation**: Detailed endpoint specifications
-- **FAQ**: Common questions and troubleshooting
-- **Video Tutorials**: Step-by-step setup and usage guides
-
-### **Community**
-- **Discord Server**: Real-time community support
-- **GitHub Discussions**: Feature requests and general discussion
-- **Stack Overflow**: Technical Q&A with `finjar` tag
-
----
-
-## **License**
-
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for complete details.
-
-The MIT License allows for commercial use, modification, distribution, and private use, while requiring only attribution and license inclusion in distributions.
-
----
-
-## **Acknowledgments**
-
-Special thanks to all contributors who have helped make FinJar a robust and user-friendly financial application. Your feedback, bug reports, and feature suggestions continue to drive the project forward.
+## Summary
+Prototype now has: signed JWT auth, per-user isolation, improved error messaging, functional reports. Still missing: strong password hashing, persistence, validation, refresh tokens, proper layering. See roadmap above for immediate focus.
