@@ -6,6 +6,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootApplication
@@ -67,12 +69,29 @@ public class SimpleFinJarApplication {
         });
     }
     
-    // Placeholder endpoints that frontend might call
+    // Auth endpoints
     @GetMapping("/api/auth/status")
     public ResponseEntity<Object> authStatus() {
         return ResponseEntity.ok(new Object() {
             public final String message = "Auth endpoints coming soon";
             public final boolean authenticated = false;
+        });
+    }
+    
+    @PostMapping("/api/auth/login")
+    public ResponseEntity<Object> login(@RequestBody(required = false) Object loginRequest) {
+        return ResponseEntity.ok(new Object() {
+            public final String message = "Login endpoint - coming soon";
+            public final boolean success = false;
+            public final String token = "placeholder-token";
+        });
+    }
+    
+    @PostMapping("/api/auth/register")
+    public ResponseEntity<Object> register(@RequestBody(required = false) Object registerRequest) {
+        return ResponseEntity.ok(new Object() {
+            public final String message = "Registration endpoint - coming soon";
+            public final boolean success = false;
         });
     }
     
