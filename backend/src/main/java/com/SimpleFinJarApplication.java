@@ -23,7 +23,7 @@ public class SimpleFinJarApplication {
 
     @GetMapping("/")
     public ResponseEntity<String> home() {
-        return ResponseEntity.ok("FINJAR V3 IS ALIVE!");
+        return ResponseEntity.ok("FINJAR V4 FORCE DEPLOY - " + System.currentTimeMillis());
     }
     
     @GetMapping("/health")
@@ -55,6 +55,12 @@ public class SimpleFinJarApplication {
         
         return ResponseEntity.ok(response);
     }
+
+    // Alias endpoint without /api prefix (fallback for older frontend bundles)
+    @PostMapping("/auth/login")
+    public ResponseEntity<Map<String, Object>> loginAlias(@RequestBody(required = false) Map<String, Object> loginRequest) {
+        return login(loginRequest);
+    }
     
     @PostMapping("/api/auth/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody(required = false) Map<String, Object> registerRequest) {
@@ -70,6 +76,12 @@ public class SimpleFinJarApplication {
         response.put("user", user);
         
         return ResponseEntity.ok(response);
+    }
+
+    // Alias endpoint without /api prefix (fallback)
+    @PostMapping("/auth/register")
+    public ResponseEntity<Map<String, Object>> registerAlias(@RequestBody(required = false) Map<String, Object> registerRequest) {
+        return register(registerRequest);
     }
     
     @GetMapping("/api/jars")
