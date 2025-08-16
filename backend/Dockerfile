@@ -30,9 +30,13 @@ WORKDIR /app
 # Copy the jar file from build stage
 COPY --from=build /app/target/FinJar-0.0.1-SNAPSHOT.jar app.jar
 
+# Copy startup script
+COPY start-docker.sh start.sh
+RUN chmod +x start.sh
+
 # Create a non-root user for security
 RUN groupadd -r spring && useradd -r -g spring spring
-RUN chown spring:spring app.jar
+RUN chown spring:spring app.jar start.sh
 USER spring
 
 # Expose port
@@ -41,9 +45,9 @@ EXPOSE 8080
 # Set environment variable for production
 ENV SPRING_PROFILES_ACTIVE=prod
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+# Health check (disabled for now as PORT is dynamic)
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+#   CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application with startup script
+ENTRYPOINT ["./start.sh"]
