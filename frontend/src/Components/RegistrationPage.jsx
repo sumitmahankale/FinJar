@@ -97,15 +97,14 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     try {
       // Use the configured backend URL  
       try {
-        const data = await api.register({ name: formData.name, email: formData.email, password: formData.password });
-        if (data && data.token) {
-          // Auto-login after registration for smoother UX
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('authToken', data.token);
-        }
-        showAlert('success', 'Registration Successful!', 'Account created. Redirecting to dashboard.');
-        setFormData({ name: '', email: '', password: '', confirmPassword: '' });
-        setTimeout(() => navigate('/dashboard'), 1500);
+  await api.register({ name: formData.name, email: formData.email, password: formData.password });
+  // Do NOT auto-login anymore: ensure any existing session is cleared so user explicitly signs in
+  localStorage.removeItem('token');
+  localStorage.removeItem('authToken');
+  showAlert('success', 'Registration Successful!', 'Account created. Please sign in to continue. Redirecting to login...');
+  setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+  // Redirect to login after brief delay so user sees success message
+  setTimeout(() => navigate('/login'), 1500);
       } catch (err) {
         showAlert('error', 'Registration Failed', err.message || 'Error during registration');
       }
