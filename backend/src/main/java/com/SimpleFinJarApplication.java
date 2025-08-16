@@ -127,7 +127,7 @@ public class SimpleFinJarApplication {
     @GetMapping("/test")
     public ResponseEntity<Map<String, Object>> test() {
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "TEST SUCCESSFUL - SIMPLE API");
+        response.put("message", "TEST SUCCESSFUL - SIMPLE API v2");
         response.put("timestamp", System.currentTimeMillis());
         response.put("port", System.getProperty("server.port", "UNKNOWN"));
         response.put("javaVersion", System.getProperty("java.version"));
