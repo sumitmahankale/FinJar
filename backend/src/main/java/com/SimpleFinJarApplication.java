@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Base64;
-import java.nio.charset.StandardCharsets;
+import java.util.Base64; // legacy leftover (will remove when mock removed)
+import java.nio.charset.StandardCharsets; // legacy leftover
 import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,7 +104,7 @@ public class SimpleFinJarApplication {
         (String) loginRequest.get("email") : "john@example.com";
     String name = loginRequest != null && loginRequest.getOrDefault("name", null) instanceof String ?
         (String) loginRequest.get("name") : "John Doe";
-    String token = generateMockJwt(email, name);
+    String token = generateJwt(email, name);
     response.put("token", token);
 
     Map<String, Object> user = new HashMap<>();
@@ -131,7 +131,7 @@ public class SimpleFinJarApplication {
         (String) registerRequest.get("email") : "newuser@example.com";
     String name = registerRequest != null && registerRequest.getOrDefault("name", null) instanceof String ?
         (String) registerRequest.get("name") : "New User";
-    String token = generateMockJwt(email, name);
+    String token = generateJwt(email, name);
     response.put("token", token);
 
     Map<String, Object> user = new HashMap<>();
@@ -149,31 +149,26 @@ public class SimpleFinJarApplication {
         return register(registerRequest);
     }
 
-    // --- Helper to build a frontend-parseable mock JWT (header.payload.signature) ---
-    private String generateMockJwt(String email, String name) {
-        long nowSeconds = System.currentTimeMillis() / 1000L;
-        long exp = nowSeconds + 3600; // 1h expiry
-        String headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
-        String payloadJson = String.format("{\"sub\":\"%s\",\"name\":\"%s\",\"email\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                email, name.replace("\"", "'"), email, nowSeconds, exp);
-        String header = base64Url(headerJson.getBytes(StandardCharsets.UTF_8));
-        String payload = base64Url(payloadJson.getBytes(StandardCharsets.UTF_8));
-        // Mock signature (not cryptographically valid)
-        String signature = base64Url("mock-signature".getBytes(StandardCharsets.UTF_8));
-        return header + "." + payload + "." + signature;
+    // Real JWT util (lazy init). Replace secret via FINJAR_JWT_SECRET env var in production.
+    private com.util.JwtUtil jwtUtil;
+    private com.util.JwtUtil jwt() {
+        if (jwtUtil == null) {
+            String secret = System.getenv().getOrDefault("FINJAR_JWT_SECRET", "ChangeMe_AtLeast32Chars_Long_Secret_Key_123");
+            jwtUtil = com.util.JwtUtil.withDefaults(secret);
+        }
+        return jwtUtil;
     }
-
-    private String base64Url(byte[] input) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(input);
+    private String generateJwt(String email, String name) {
+        Map<String,Object> claims = new HashMap<>();
+        claims.put("email", email);
+        claims.put("name", name);
+        claims.put("role", "USER");
+        return jwt().generateToken(email, claims);
     }
-    
-    // Simple token validation (mock) - checks structure only
     private boolean validToken(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) return false;
         String token = authHeader.substring(7);
-        String[] parts = token.split("\\.");
-        if (parts.length != 3) return false;
-        return parts[1].length() > 0; // payload present
+        return jwt().isValid(token);
     }
 
     private ResponseEntity<Map<String, Object>> unauthorized() {
