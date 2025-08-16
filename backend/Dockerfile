@@ -29,7 +29,7 @@ RUN echo '#!/bin/bash' > start.sh && \
     echo 'echo "Java Version:"' >> start.sh && \
     echo 'java -version' >> start.sh && \
     echo 'echo "Starting application..."' >> start.sh && \
-    echo 'exec java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Dspring.main.class=com.SimpleFinJarApplication -jar app.jar' >> start.sh && \
+    echo 'exec java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -jar app.jar' >> start.sh && \
     chmod +x start.sh
 
 # Expose port
