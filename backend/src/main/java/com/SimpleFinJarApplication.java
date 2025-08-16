@@ -149,6 +149,17 @@ public class SimpleFinJarApplication {
         return register(registerRequest);
     }
 
+    // Additional user-oriented alias paths (frontend used /api/users/register mistakenly)
+    @PostMapping("/api/users/register")
+    public ResponseEntity<Map<String, Object>> registerUsersAlias(@RequestBody(required = false) Map<String, Object> registerRequest) {
+        return register(registerRequest);
+    }
+
+    @PostMapping("/api/users/login")
+    public ResponseEntity<Map<String, Object>> loginUsersAlias(@RequestBody(required = false) Map<String, Object> loginRequest) {
+        return login(loginRequest);
+    }
+
     // Real JWT util (lazy init). Replace secret via FINJAR_JWT_SECRET env var in production.
     private com.util.JwtUtil jwtUtil;
     private com.util.JwtUtil jwt() {
