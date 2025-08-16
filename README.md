@@ -65,27 +65,29 @@ The application follows modern software architecture principles with a clean sep
 ### **Prerequisites (Prototype)**
 - Java 8+ (will move to 17+ soon)
 - Node.js 18+
-- Maven 3.6+
+Current state: a deliberately simplified Spring Boot + React prototype focused on rapid deploy & UI integration. Now supports real per-user authentication (JWT with userId), password validation, and user-specific jars & deposits (in-memory, non-persistent). The earlier README language described a fully featured, secure, database‑backed system; that is part of the roadmap but not yet implemented in this branch.
 - Git
-
+| Jars | In-memory list/create/update/delete + progress, per-user | Data lost on restart |
 ### **Backend Run (Prototype)**
+| Deposits | In-memory create/list/update/delete + jar amount recalculation, per-user | No pagination |
 
-1. **Clone and Navigate to Repository**
-   ```bash
-   git clone https://github.com/sumitmahankale/FinJar.git
-   cd FinJar/finjar-backend
-   ```
-
-2. **Build and Run Application**
-   ```bash
-   mvn clean install
+## **Not Yet Implemented**
+- Password hashing (currently simple hash, upgrade to BCrypt recommended)
+- JWT refresh tokens
+- Persistent storage (H2/Postgres/MySQL)
+- Role-based authorization
+- Comprehensive validation & error codes
+- Pagination / filtering / sorting
+- Rate limiting & audit logging
+- CI tests & coverage
+- Proper 404/exception mapping (will be added soon)
    mvn spring-boot:run
    ```
 
 Server (default) starts at `http://localhost:8080` (API paths under `/api/...`).
-
-### **Frontend Configuration**
-
+POST  /api/auth/login         # Requires email & password
+POST  /api/auth/register      # Requires name, email, password
+POST  /api/auth/logout        # (mock, token structure only)
 1. **Navigate to Frontend Directory**
    ```bash
    cd ../finjar-frontend
@@ -100,16 +102,20 @@ Server (default) starts at `http://localhost:8080` (API paths under `/api/...`).
    For Vite (example `.env.local`):
    ```env
    VITE_API_BASE_URL=http://localhost:8080
-   VITE_ENV=development
-   ```
+## **Roadmap**
 
-4. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
-
-The frontend application will start at `http://localhost:3000`
-
+### **Upcoming Features (Prioritized)**
+1. Password hashing (BCrypt)
+2. JWT refresh tokens
+3. Persistence (H2 + migration to Postgres)
+4. Validation & global error handling
+5. Pagination & filtering
+6. Rate limiting & structured logging
+7. Automated / scheduled deposits
+8. Categories & goal sharing
+9. Export & reporting
+10. Mobile apps
+11. Bank integrations
 ---
 
 ## **API Documentation**
