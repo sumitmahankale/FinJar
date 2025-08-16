@@ -1,6 +1,6 @@
 const config = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
-  ENV: import.meta.env.VITE_ENV || 'development',
+  API_BASE_URL: 'https://finjar.onrender.com',
+  ENV: 'production',
   
   // API endpoints
   endpoints: {
