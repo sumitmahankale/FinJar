@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import config from '../config/config.js';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import api from '../services/apiService.js';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -31,188 +31,67 @@ const Reports = ({ isDarkMode = false }) => {
   const hasFetchedData = useRef(false);
 
   // Get auth token from localStorage
-  const getAuthToken = () => {
-    const token = localStorage.getItem('authToken');
+  const getAuthToken = useCallback(() => {
+    let token = localStorage.getItem('token');
+    if (!token) token = localStorage.getItem('authToken');
     if (!token) {
       setError('No authentication token found. Please log in again.');
       return null;
     }
     return token;
-  };
+  }, []);
 
   // Fetch user's jars
-  const fetchJars = async (showRefreshing = false) => {
+  const fetchJars = useCallback(async (showRefreshing = false) => {
     try {
       if (showRefreshing) setRefreshing(true);
       setError(null);
-      
-      const token = getAuthToken();
-      if (!token) return;
-
-      console.log('Fetching jars for reports...');
-
-      const response = await fetch(`${config.API_BASE_URL}/api/jars`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        let responseText = await response.text();
-        
-        if (!responseText || responseText.trim() === '') {
-          setJars([]);
-          return;
-        }
-
-        // Handle large responses (circular reference)
-        if (responseText.length > 50000) {
-          console.warn('Response too large, extracting jar data manually...');
-          
-          try {
-            const extractedJars = [];
-            const jarPattern = /"id"\s*:\s*(\d+)[^}]*?"title"\s*:\s*"([^"]*)"[^}]*?"targetAmount"\s*:\s*([\d.]+)[^}]*?"savedAmount"\s*:\s*([\d.]+)/g;
-            let match;
-            
-            while ((match = jarPattern.exec(responseText)) !== null) {
-              const jarId = parseInt(match[1]);
-              if (!extractedJars.find(jar => jar.id === jarId)) {
-                extractedJars.push({
-                  id: jarId,
-                  title: match[2],
-                  targetAmount: parseFloat(match[3]) || 0,
-                  savedAmount: parseFloat(match[4]) || 0
-                });
-              }
-            }
-            
-            if (extractedJars.length > 0) {
-              setJars(extractedJars);
-              return;
-            }
-          } catch (extractionError) {
-            console.error('Manual extraction failed:', extractionError);
-            setError('Failed to extract jar data. Backend has circular reference issues.');
-            return;
-          }
-        }
-
-        try {
-          responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-          const data = JSON.parse(responseText);
-          
-          if (Array.isArray(data)) {
-            const cleanedJars = data.map(jar => ({
-              id: jar.id,
-              title: jar.title || jar.name || jar.jarName || 'Unnamed Jar',
-              targetAmount: jar.targetAmount || jar.target_amount || jar.goalAmount || 0,
-              savedAmount: jar.savedAmount || jar.saved_amount || jar.currentAmount || 0,
-              createdDate: jar.createdDate || jar.created_date
-            }));
-            
-            setJars(cleanedJars);
-          } else {
-            setJars([]);
-          }
-        } catch (jsonError) {
-          console.error('JSON parsing error:', jsonError);
-          setError('Failed to parse jar data. Backend circular reference issue.');
-        }
-      } else if (response.status === 401) {
-        setError('Session expired. Please log in again.');
-        localStorage.removeItem('authToken');
-      } else {
-        const errorText = await response.text();
-        setError(`Failed to fetch jars: ${response.status} - ${errorText}`);
-      }
+      if (!getAuthToken()) return;
+      const rawJars = await api.getJars();
+      const normalized = rawJars.map(j => ({
+        id: j.id,
+        title: j.name || j.title || 'Unnamed Jar',
+        targetAmount: j.targetAmount ?? 0,
+        savedAmount: j.currentAmount ?? j.savedAmount ?? 0,
+        createdDate: j.createdAt ? new Date(j.createdAt).toISOString() : undefined
+      }));
+      setJars(normalized);
     } catch (err) {
-      console.error('Network error fetching jars:', err);
-      setError('Unable to connect to server. Please check if the backend is running.');
+      console.error('Error fetching jars for reports:', err);
+      setError(err.message || 'Failed to fetch jars');
     } finally {
       setLoading(false);
       if (showRefreshing) setRefreshing(false);
     }
-  };
+  }, [getAuthToken]);
 
   // Fetch all deposits for all jars
-  const fetchAllDeposits = async () => {
+  const fetchAllDeposits = useCallback(async () => {
     try {
-      const token = getAuthToken();
-      if (!token || jars.length === 0) return;
-
-      const allDeposits = [];
-      
-      for (const jar of jars) {
+      if (!getAuthToken() || jars.length === 0) return;
+      const all = await Promise.all(jars.map(async jar => {
         try {
-          const response = await fetch(`${config.API_BASE_URL}/api/deposits/jar/${jar.id}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (response.ok) {
-            let responseText = await response.text();
-            
-            if (responseText && responseText.trim() !== '') {
-              // Handle large responses
-              if (responseText.length > 50000) {
-                const extractedDeposits = [];
-                const depositPattern = /"id"\s*:\s*(\d+)[^}]*?"amount"\s*:\s*([\d.]+)[^}]*?"(?:date|timestamp|depositDate)"\s*:\s*"([^"]*)"/g;
-                let match;
-                
-                while ((match = depositPattern.exec(responseText)) !== null) {
-                  const depositId = parseInt(match[1]);
-                  if (!extractedDeposits.find(dep => dep.id === depositId)) {
-                    extractedDeposits.push({
-                      id: depositId,
-                      amount: parseFloat(match[2]) || 0,
-                      date: match[3],
-                      jarId: jar.id,
-                      jarTitle: jar.title
-                    });
-                  }
-                }
-                
-                allDeposits.push(...extractedDeposits);
-              } else {
-                try {
-                  responseText = responseText.replace(/,(\s*[}\]])/g, '$1');
-                  const data = JSON.parse(responseText);
-                  
-                  if (Array.isArray(data)) {
-                    const cleanedDeposits = data.map(deposit => ({
-                      id: deposit.id,
-                      amount: deposit.amount || 0,
-                      date: deposit.date || deposit.timestamp || deposit.depositDate,
-                      jarId: jar.id,
-                      jarTitle: jar.title
-                    }));
-                    
-                    allDeposits.push(...cleanedDeposits);
-                  }
-                } catch (jsonError) {
-                  console.warn(`Failed to parse deposits for jar ${jar.id}:`, jsonError);
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Error fetching deposits for jar ${jar.id}:`, err);
+          const deps = await api.getDeposits(jar.id);
+          return deps.map(d => ({
+            id: d.id,
+            amount: d.amount ?? 0,
+            date: d.createdAt ? new Date(d.createdAt).toISOString() : (d.date || new Date().toISOString()),
+            jarId: jar.id,
+            jarTitle: jar.title
+          }));
+        } catch (e) {
+          console.warn('Failed to fetch deposits for jar', jar.id, e);
+          return [];
         }
-      }
-      
-      setDeposits(allDeposits);
+      }));
+      setDeposits(all.flat());
     } catch (err) {
       console.error('Error fetching all deposits:', err);
     }
-  };
+  }, [jars, getAuthToken]);
 
   // Calculate report data based on filters
-  const calculateReportData = () => {
+  const calculateReportData = useCallback(() => {
     if (jars.length === 0) return null;
 
     const now = new Date();
@@ -306,25 +185,23 @@ switch (selectedPeriod) {
       filteredJars,
       filteredDeposits
     };
-  };
+  }, [jars, deposits, selectedPeriod, selectedJar]);
 
   useEffect(() => {
     if (!hasFetchedData.current) {
       hasFetchedData.current = true;
       fetchJars();
     }
-  }, []);
+  }, [fetchJars]);
 
   useEffect(() => {
     if (jars.length > 0) {
       fetchAllDeposits();
     }
-  }, [jars]);
+  }, [jars, fetchAllDeposits]);
 
-  useEffect(() => {
-    const data = calculateReportData();
-    setReportData(data);
-  }, [jars, deposits, selectedPeriod, selectedJar]);
+  const memoReport = useMemo(() => calculateReportData(), [calculateReportData]);
+  useEffect(() => { setReportData(memoReport); }, [memoReport]);
 
   // Format currency
   const formatCurrency = (amount) => {
