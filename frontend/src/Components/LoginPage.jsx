@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import config from '../config/config.js';
+// config import removed (using api service endpoints)
+import api from '../services/apiService.js';
 
 export default function FinJarLogin({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -71,57 +72,19 @@ export default function FinJarLogin({ isDarkMode = false }) {
     
     try {
       // Use the configured backend URL
-      const response = await fetch(`${config.API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Store JWT token (you might want to use a more secure method)
-        localStorage.setItem('authToken', data.token);
-        
-        showAlert('success', 'Login Successful!', 'Welcome back! You will be redirected to your dashboard.');
-        
-        // Reset form
-        setFormData({
-          email: '',
-          password: ''
-        });
-        
-        // Redirect to dashboard after a delay
-        setTimeout(() => {
-          handleDashboardRedirect();
-        }, 2000);
-        
-      } else {
-        // Handle error response
-        let errorMessage = 'Invalid email or password. Please try again.';
-        
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } else {
-            // If not JSON, get text content
-            const errorText = await response.text();
-            if (errorText) {
-              errorMessage = errorText;
-            }
-          }
-        } catch (parseError) {
-          console.error('Error parsing response:', parseError);
+      try {
+        const data = await api.login({ email: formData.email, password: formData.password });
+        if (data && data.token) {
+          localStorage.setItem('token', data.token); // unified key
+          localStorage.setItem('authToken', data.token); // legacy compatibility
+          showAlert('success', 'Login Successful!', 'Welcome back! Redirecting to your dashboard.');
+          setFormData({ email: '', password: '' });
+          setTimeout(() => handleDashboardRedirect(), 1500);
+        } else {
+          showAlert('error', 'Login Failed', 'No token returned.');
         }
-        
-        showAlert('error', 'Login Failed', errorMessage);
+      } catch (err) {
+        showAlert('error', 'Login Failed', err.message || 'Invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);

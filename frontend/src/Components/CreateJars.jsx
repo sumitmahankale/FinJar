@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import config from '../config/config.js';
+import api from '../services/apiService.js';
 import { 
   PiggyBank, 
   Plus, 
@@ -20,15 +20,6 @@ const CreateJars = ({ isDarkMode = false, onNavigateBack }) => {
   const [success, setSuccess] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
 
-  // Get auth token from localStorage
-  const getAuthToken = () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setError('No authentication token found. Please log in again.');
-      return null;
-    }
-    return token;
-  };
 
   // Validate form data
   const validateForm = () => {
@@ -90,90 +81,22 @@ const CreateJars = ({ isDarkMode = false, onNavigateBack }) => {
       return;
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError('Authentication required. Please log in again.');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const jarData = {
-        title: formData.title.trim(),
-        targetAmount: parseFloat(formData.targetAmount)
-      };
-
-      console.log('Creating jar:', jarData);
-
-      const response = await fetch(`${config.API_BASE_URL}/api/jars`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(jarData)
-      });
-
-      console.log('Create jar response status:', response.status);
-
-      if (response.ok) {
-        // Handle successful creation
-        let responseText = await response.text();
-        
-        try {
-          if (responseText && responseText.trim() !== '') {
-            const result = JSON.parse(responseText);
-            console.log('Jar created successfully:', result);
-          } else {
-            console.log('Jar created successfully (empty response)');
-          }
-        } catch (parseError) {
-          console.log('Jar created successfully (response parsing failed, but HTTP 200):', parseError.message);
-        }
-
-        // Show success message
-        setSuccess(`Jar "${formData.title}" created successfully! 🎉`);
-        
-        // Clear form
-        setFormData({
-          title: '',
-          targetAmount: ''
-        });
-        setValidationErrors({});
-
-        // Optional: Navigate back after a delay
-        setTimeout(() => {
-          if (onNavigateBack) {
-            onNavigateBack();
-          }
-        }, 2000);
-
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to create jar:', response.status, errorText);
-        
-        if (response.status === 401) {
-          setError('Session expired. Please log out and log in again.');
-          localStorage.removeItem('authToken');
-        } else if (response.status === 403) {
-          setError('You do not have permission to create jars.');
-        } else if (response.status === 400) {
-          setError('Invalid jar data. Please check your inputs and try again.');
-        } else {
-          setError(`Failed to create jar: ${errorText || 'Unknown error'}`);
-        }
-      }
-    } catch (err) {
-      console.error('Network error creating jar:', err);
-      if (err.message.includes('JSON') && err.message.includes('position')) {
-        console.log('Jar likely created successfully, but response has JSON issues');
+      const payload = { title: formData.title.trim(), targetAmount: parseFloat(formData.targetAmount) };
+      const data = await api.createJar(payload);
+      if (data && (data.jar || data.success)) {
         setSuccess(`Jar "${formData.title}" created successfully! 🎉`);
         setFormData({ title: '', targetAmount: '' });
         setValidationErrors({});
+        setTimeout(() => { onNavigateBack && onNavigateBack(); }, 1500);
       } else {
-        setError('Network error. Please check your connection and try again.');
+        setError('Unexpected response creating jar');
       }
+    } catch (err) {
+      console.error('Error creating jar:', err);
+      setError(err.message || 'Error creating jar');
     } finally {
       setLoading(false);
     }

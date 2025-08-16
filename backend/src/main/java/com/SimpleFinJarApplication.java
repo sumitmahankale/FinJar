@@ -221,9 +221,14 @@ public class SimpleFinJarApplication {
     }
     
     @GetMapping("/api/jars")
-    public ResponseEntity<Map<String, Object>> getJars(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> getJars(@RequestHeader(value = "Authorization", required = false) String auth,
+                                      @RequestParam(name = "flat", required = false) Integer flat) {
         if (!validToken(auth)) return unauthorized();
         List<Map<String, Object>> list = new ArrayList<>(JARS.values());
+        if (flat != null && flat == 1) {
+            // Legacy / simplified response for older frontend expecting an array
+            return ResponseEntity.ok(list);
+        }
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("total", list.size());
@@ -235,8 +240,15 @@ public class SimpleFinJarApplication {
     public ResponseEntity<Map<String, Object>> createJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                          @RequestBody(required = false) Map<String, Object> body) {
         if (!validToken(auth)) return unauthorized();
-        if (body == null || !body.containsKey("name") || !body.containsKey("targetAmount")) {
-            return ResponseEntity.badRequest().body(error("Missing required fields: name, targetAmount"));
+        if (body == null) {
+            return ResponseEntity.badRequest().body(error("Missing request body"));
+        }
+        // Accept legacy frontend field "title" as an alias for "name"
+        if (!body.containsKey("name") && body.containsKey("title")) {
+            body.put("name", body.get("title"));
+        }
+        if (!body.containsKey("name") || !body.containsKey("targetAmount")) {
+            return ResponseEntity.badRequest().body(error("Missing required fields: name (or title), targetAmount"));
         }
         String name = String.valueOf(body.get("name"));
         Double target = toDouble(body.get("targetAmount"), 0.0);
@@ -311,6 +323,29 @@ public class SimpleFinJarApplication {
         return ResponseEntity.ok(success("Deposit added", "deposit", deposit));
     }
 
+    // Path variant used by frontend: /api/deposits/jar/{jarId}
+    @PostMapping("/api/deposits/jar/{jarId}")
+    public ResponseEntity<Map<String, Object>> createDepositForJar(@RequestHeader(value = "Authorization", required = false) String auth,
+                                                                   @PathVariable Long jarId,
+                                                                   @RequestBody(required = false) Map<String, Object> body) {
+        if (!validToken(auth)) return unauthorized();
+        if (jarId == null) return ResponseEntity.badRequest().body(error("Missing jarId path variable"));
+        if (!JARS.containsKey(jarId)) return ResponseEntity.badRequest().body(error("Jar not found"));
+        if (body == null || !body.containsKey("amount")) return ResponseEntity.badRequest().body(error("Missing required field: amount"));
+        Double amount = toDouble(body.get("amount"), 0.0);
+        String description = String.valueOf(body.getOrDefault("description", ""));
+        long id = DEPOSIT_ID_SEQ.incrementAndGet();
+        Map<String, Object> deposit = new HashMap<>();
+        deposit.put("id", id);
+        deposit.put("jarId", jarId);
+        deposit.put("amount", amount);
+        deposit.put("description", description);
+        deposit.put("createdAt", System.currentTimeMillis());
+        DEPOSITS.put(id, deposit);
+        adjustJarAmount(jarId, amount);
+        return ResponseEntity.ok(success("Deposit added", "deposit", deposit));
+    }
+
     @GetMapping("/api/deposits")
     public ResponseEntity<Map<String, Object>> listDeposits(@RequestHeader(value = "Authorization", required = false) String auth,
                                                             @org.springframework.web.bind.annotation.RequestParam(name = "jarId", required = false) Long jarId) {
@@ -318,6 +353,25 @@ public class SimpleFinJarApplication {
         List<Map<String, Object>> list = new ArrayList<>(DEPOSITS.values());
         if (jarId != null) {
             list = list.stream().filter(d -> jarId.equals(d.get("jarId"))).collect(Collectors.toList());
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("total", list.size());
+        response.put("deposits", list);
+        return ResponseEntity.ok(response);
+    }
+
+    // Convenience legacy style: /api/deposits/jar/{jarId} returning just an array
+    @GetMapping("/api/deposits/jar/{jarId}")
+    public ResponseEntity<?> listDepositsByJar(@RequestHeader(value = "Authorization", required = false) String auth,
+                                               @PathVariable Long jarId,
+                                               @RequestParam(name = "flat", required = false) Integer flat) {
+        if (!validToken(auth)) return unauthorized();
+        List<Map<String, Object>> list = DEPOSITS.values().stream()
+                .filter(d -> jarId.equals(d.get("jarId")))
+                .collect(Collectors.toList());
+        if (flat == null || flat != 0) {
+            return ResponseEntity.ok(list);
         }
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);

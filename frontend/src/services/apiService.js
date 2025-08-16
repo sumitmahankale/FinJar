@@ -8,7 +8,15 @@ class ApiService {
   // Generic request method
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem('token');
+    // Support both 'token' (new) and legacy 'authToken'
+    let token = localStorage.getItem('token');
+    if (!token) {
+      token = localStorage.getItem('authToken');
+      if (token) {
+        // migrate silently
+        localStorage.setItem('token', token);
+      }
+    }
     
     const defaultOptions = {
       headers: {
@@ -39,7 +47,9 @@ class ApiService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+  const text = await response.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return { raw: text }; }
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -80,13 +90,21 @@ class ApiService {
 
   // Jar methods
   async getJars() {
-    return this.request(config.endpoints.jar.list);
+  const data = await this.request(config.endpoints.jar.list + '?flat=1');
+  // If wrapped response
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.jars)) return data.jars;
+  return [];
   }
 
   async createJar(jarData) {
+    // Ensure backend field name compatibility
+    const payload = { ...jarData };
+    if (payload.title && !payload.name) payload.name = payload.title;
+    delete payload.title; // backend uses name
     return this.request(config.endpoints.jar.create, {
       method: 'POST',
-      body: JSON.stringify(jarData)
+      body: JSON.stringify(payload)
     });
   }
 
@@ -105,7 +123,10 @@ class ApiService {
 
   // Deposit methods
   async getDeposits(jarId) {
-    return this.request(`${config.endpoints.deposit.list}?jarId=${jarId}`);
+  const data = await this.request(`/api/deposits/jar/${jarId}`);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.deposits)) return data.deposits;
+  return [];
   }
 
   async createDeposit(depositData) {

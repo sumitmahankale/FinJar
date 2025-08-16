@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, User, Mail, Lock, X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import config from '../config/config.js';
+import api from '../services/apiService.js';
 
 export default function FinJarRegistration({ isDarkMode = false }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -96,61 +96,18 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     
     try {
       // Use the configured backend URL  
-      const response = await fetch(`${config.API_BASE_URL}/api/users/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        })
-      });
-
-      if (response.ok) {
-        // Check if response has content before parsing JSON
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          await response.json(); // Parse JSON response
+      try {
+        const data = await api.register({ name: formData.name, email: formData.email, password: formData.password });
+        if (data && data.token) {
+          // Auto-login after registration for smoother UX
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('authToken', data.token);
         }
-        
-        showAlert('success', 'Registration Successful!', 'Your account has been created successfully. You can now sign in.');
-        
-        // Reset form
-        setFormData({
-          name: '',
-          email: '',
-          password: '',
-          confirmPassword: ''
-        });
-        
-        // Optionally redirect to login page after a delay
-        setTimeout(() => {
-          handleSignInClick();
-        }, 2000);
-        
-      } else {
-        // Handle error response
-        let errorMessage = 'An error occurred during registration. Please try again.';
-        
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-          } else {
-            // If not JSON, get text content
-            const errorText = await response.text();
-            if (errorText) {
-              errorMessage = errorText;
-            }
-          }
-        } catch (parseError) {
-          console.error('Error parsing response:', parseError);
-        }
-        
-        showAlert('error', 'Registration Failed', errorMessage);
+        showAlert('success', 'Registration Successful!', 'Account created. Redirecting to dashboard.');
+        setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+        setTimeout(() => navigate('/dashboard'), 1500);
+      } catch (err) {
+        showAlert('error', 'Registration Failed', err.message || 'Error during registration');
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -168,11 +125,7 @@ export default function FinJarRegistration({ isDarkMode = false }) {
     }
   };
 
-  const handleSignInClick = () => {
-    showAlert('info', 'Redirecting...', 'Taking you to the sign-in page');
-    navigate('/login');
-    console.log('Navigate to sign in');
-  };
+  // handleSignInClick removed (auto redirect to dashboard after registration)
 
   // Alert icon component
   const AlertIcon = ({ type }) => {
