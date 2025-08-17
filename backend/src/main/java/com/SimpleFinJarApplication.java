@@ -19,6 +19,9 @@ import com.repo.JarRepo;
 import com.repo.DepositRepo;
 import com.service.AuthService;
 import com.service.JarService;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 @SpringBootApplication
 @RestController
@@ -30,14 +33,16 @@ public class SimpleFinJarApplication {
     private final DepositRepo depositRepo;
     private final AuthService authService;
     private final JarService jarService;
+    private final DataSource dataSource;
 
     public SimpleFinJarApplication(UserRepo userRepo, JarRepo jarRepo, DepositRepo depositRepo,
-                                   AuthService authService, JarService jarService) {
+                                   AuthService authService, JarService jarService, DataSource dataSource) {
         this.userRepo = userRepo;
         this.jarRepo = jarRepo;
         this.depositRepo = depositRepo;
         this.authService = authService;
         this.jarService = jarService;
+        this.dataSource = dataSource;
     }
 
     @PostConstruct
@@ -87,6 +92,29 @@ public class SimpleFinJarApplication {
         response.put("message", "FinJar API v3 is fully operational");
         response.put("timestamp", System.currentTimeMillis());
         return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/api/db/ping")
+    public ResponseEntity<Map<String,Object>> dbPing() {
+        Map<String,Object> resp = new HashMap<>();
+        long start = System.currentTimeMillis();
+        try (Connection c = dataSource.getConnection()) {
+            if (c.isValid(5)) {
+                resp.put("success", true);
+                resp.put("latencyMs", System.currentTimeMillis() - start);
+                resp.put("message", "DB connection OK");
+                return ResponseEntity.ok(resp);
+            } else {
+                resp.put("success", false);
+                resp.put("message", "Connection not valid");
+                return ResponseEntity.status(500).body(resp);
+            }
+        } catch (SQLException e) {
+            resp.put("success", false);
+            resp.put("error", e.getClass().getSimpleName());
+            resp.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(resp);
+        }
     }
     
     @PostMapping("/api/auth/login")

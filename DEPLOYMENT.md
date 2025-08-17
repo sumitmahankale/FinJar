@@ -20,19 +20,43 @@
    - Add environment variable: `VITE_API_BASE_URL` = your backend URL
    - Deploy!
 
-### Backend Deployment (Railway - Recommended)
+### Backend Deployment (Railway or Render + Railway MySQL)
 
-1. **Deploy to Railway**:
-   - Visit [railway.app](https://railway.app) and sign up with GitHub
-   - Click "New Project" → "Deploy from GitHub repo"
-   - Select your repository and choose `backend` folder
-   - Railway will auto-detect Spring Boot and deploy
-   - Add a PostgreSQL database service
-   - Set environment variables:
-     - `SPRING_PROFILES_ACTIVE=prod`
-     - `DATABASE_URL` (auto-provided by Railway PostgreSQL)
-     - `JWT_SECRET=your-super-secret-jwt-key-here`
-     - `CORS_ORIGINS=https://your-frontend-app.vercel.app`
+FinJar now uses MySQL persistence. You can:
+* Host both app and MySQL on Railway, or
+* Host MySQL on Railway and the app on Render (ensure you use the Railway PUBLIC connection URL, not the internal hostname).
+
+1. **Provision MySQL (Railway)**:
+   - Add MySQL plugin/service.
+   - Note the PUBLIC connection parameters (host, port, database, user, password).
+
+2. **Set Backend Environment Variables** (choose ONE of these URL strategies):
+   - Preferred explicit JDBC URL:
+     `FINJAR_DB_URL=jdbc:mysql://<public-host>:<public-port>/<database>?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&socketTimeout=60000&connectTimeout=15000`
+   - Or rely on component vars (`MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`) if on Railway same project.
+   - Render fallback mapping supported: `DATABASE_URL` (must already be a JDBC URL), `DB_USERNAME`, `DB_PASSWORD`.
+
+   Required secrets:
+   - `FINJAR_DB_USER` or `DB_USERNAME` (if not embedded in FINJAR_DB_URL)
+   - `FINJAR_DB_PASSWORD` or `DB_PASSWORD`
+   - `FINJAR_JWT_SECRET` (or `JWT_SECRET`)
+   - `FINJAR_JWT_EXPIRATION_MS` (optional, default 3600000)
+   - `FINJAR_ALLOWED_ORIGINS` (or `CORS_ORIGINS`) comma-separated frontend origins
+
+3. **Deploy Application**:
+   - Railway: deploy backend directory directly from repo.
+   - Render: create a new Web Service → Build command `./mvnw -DskipTests package` → Start command `java -jar target/FinJar-0.0.1-SNAPSHOT.jar` (or `./mvnw spring-boot:run`). Set env vars above.
+
+4. **Validate Health**:
+   - `GET /health` basic up check
+   - `GET /api/db/ping` verifies DB connectivity + latency
+   - `GET /api/version` shows version & timestamp
+
+5. **Troubleshooting DB Timeouts (SQLState 08S01)**:
+   - Confirm you're NOT using `mysql.railway.internal` from Render; must use public host.
+   - Ensure FINJAR_DB_URL is single line, no hidden whitespace.
+   - Check logs for `HikariPool-1 - Starting...` followed by successful init (no 60s timeout).
+   - Reduce pool size already set (max=5) for free tier compatibility.
 
 ### Alternative Options
 
