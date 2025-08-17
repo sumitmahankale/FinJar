@@ -20,7 +20,10 @@ public class MysqlUrlEnvironmentPostProcessor implements EnvironmentPostProcesso
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         String existing = environment.getProperty("spring.datasource.url");
-        if (StringUtils.hasText(existing)) return; // already configured elsewhere
+        if (StringUtils.hasText(existing)) {
+            System.out.println("[FinJar][early] Using existing spring.datasource.url=" + sanitize(existing));
+            return; // already configured elsewhere
+        }
 
         String raw = firstNonEmpty(
                 environment.getProperty("FINJAR_DB_URL"),
@@ -29,8 +32,14 @@ public class MysqlUrlEnvironmentPostProcessor implements EnvironmentPostProcesso
                 environment.getProperty("MYSQL_PUBLIC_URL")
         );
         if (!StringUtils.hasText(raw)) return;
-        if (raw.startsWith("jdbc:mysql://")) return; // nothing to do
-        if (!raw.startsWith("mysql://")) return; // unrecognized scheme
+        if (raw.startsWith("jdbc:mysql://")) {
+            System.out.println("[FinJar][early] Found JDBC URL (no transform): " + sanitize(raw));
+            return; // nothing to do
+        }
+        if (!raw.startsWith("mysql://")) {
+            System.out.println("[FinJar][early] Non-MySQL URL scheme detected, skipping transform: " + raw);
+            return; // unrecognized scheme
+        }
         try {
             URI uri = URI.create(raw);
             String userInfo = uri.getUserInfo();
@@ -47,6 +56,7 @@ public class MysqlUrlEnvironmentPostProcessor implements EnvironmentPostProcesso
             if (db != null && db.startsWith("/")) db = db.substring(1);
             if (!StringUtils.hasText(db)) db = "finjar";
             String jdbc = "jdbc:mysql://" + host + ":" + port + "/" + db + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&socketTimeout=60000&connectTimeout=15000";
+            System.out.println("[FinJar][early] Transformed mysql:// URL -> " + sanitize(jdbc));
 
             Map<String,Object> map = new HashMap<>();
             map.put("spring.datasource.url", jdbc);
@@ -58,8 +68,8 @@ public class MysqlUrlEnvironmentPostProcessor implements EnvironmentPostProcesso
             }
             PropertySource<?> ps = new MapPropertySource("mysqlUrlDerived", map);
             environment.getPropertySources().addFirst(ps);
-        } catch (Exception ignored) {
-            // ignore parse errors
+        } catch (Exception ex) {
+            System.out.println("[FinJar][early] Failed to parse MYSQL_URL: " + ex.getMessage());
         }
     }
 
@@ -70,5 +80,9 @@ public class MysqlUrlEnvironmentPostProcessor implements EnvironmentPostProcesso
     @Override
     public int getOrder() {
         return Ordered.HIGHEST_PRECEDENCE + 10;
+    }
+
+    private String sanitize(String url) {
+        return url == null ? null : url.replaceAll("(?i)password=[^&]+", "password=***");
     }
 }

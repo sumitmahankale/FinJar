@@ -190,7 +190,11 @@ public class SimpleFinJarApplication {
             String secret = env.getOrDefault("FINJAR_JWT_SECRET", env.getOrDefault("JWT_SECRET", "ChangeMe_AtLeast32Chars_Long_Secret_Key_123"));
             String expMsStr = env.getOrDefault("FINJAR_JWT_EXPIRATION_MS", env.getOrDefault("JWT_EXPIRATION", "3600000"));
             long expMs;
-            try { expMs = Long.parseLong(expMsStr); } catch (Exception e) { expMs = 3600000L; }
+            try { expMs = Long.parseLong(expMsStr.trim()); } catch (Exception e) { expMs = 3600000L; }
+            // If value looks like seconds (e.g. 86400), convert to ms.
+            if (expMs > 0 && expMs < 1000000L) { // < ~16.6 minutes in ms -> assume seconds
+                expMs = expMs * 1000L;
+            }
             jwtUtil = new com.util.JwtUtil(secret, expMs);
         }
         return jwtUtil;
