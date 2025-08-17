@@ -5,80 +5,54 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Base64; // legacy leftover (will remove when mock removed)
-import java.nio.charset.StandardCharsets; // legacy leftover
-import java.util.List;
-import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import javax.annotation.PostConstruct;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.model.UserEntity;
+import com.model.JarEntity;
+import com.model.DepositEntity;
+import com.repo.UserRepo;
+import com.repo.JarRepo;
+import com.repo.DepositRepo;
+import com.service.AuthService;
+import com.service.JarService;
 
 @SpringBootApplication
 @RestController
 @CrossOrigin(origins = {"http://localhost:5173", "https://finjar-chi.vercel.app", "https://finjar-frontend.vercel.app", "https://finjar.vercel.app"})
 public class SimpleFinJarApplication {
 
-    // ================= In-memory stores (NOT persistent) =================
-    private static final Map<Long, Map<String, Object>> JARS = new ConcurrentHashMap<>();
-    private static final Map<Long, Map<String, Object>> DEPOSITS = new ConcurrentHashMap<>();
-    private static final Map<Long, Map<String, Object>> USERS = new ConcurrentHashMap<>(); // id -> user {id,email,name,passwordHash}
-    private static final Map<String, Long> USER_EMAIL_INDEX = new ConcurrentHashMap<>(); // email -> userId
-    private static final AtomicLong JAR_ID_SEQ = new AtomicLong(0);
-    private static final AtomicLong DEPOSIT_ID_SEQ = new AtomicLong(0);
-    private static final AtomicLong USER_ID_SEQ = new AtomicLong(0);
+    private final UserRepo userRepo;
+    private final JarRepo jarRepo;
+    private final DepositRepo depositRepo;
+    private final AuthService authService;
+    private final JarService jarService;
 
-    static {
-        // Seed demo user (password: password)
-        Map<String,Object> demo = createUserInternal("john@example.com", "John Doe", "password");
-        seedJar(demo, "Emergency Fund", 1000.0, 500.0, "Basic safety net");
-        seedJar(demo, "Vacation", 2500.0, 850.0, "Trip to mountains");
-        seedJar(demo, "New Laptop", 1800.0, 300.0, "Upgrade gear");
-        seedDeposit(demo, 1L, 300.0, "Initial seed");
-        seedDeposit(demo, 1L, 200.0, "Monthly save");
+    public SimpleFinJarApplication(UserRepo userRepo, JarRepo jarRepo, DepositRepo depositRepo,
+                                   AuthService authService, JarService jarService) {
+        this.userRepo = userRepo;
+        this.jarRepo = jarRepo;
+        this.depositRepo = depositRepo;
+        this.authService = authService;
+        this.jarService = jarService;
     }
 
-    private static String hashPassword(String raw) {
-        return Integer.toHexString((raw == null ? "" : raw).hashCode());
-    }
-
-    private static Map<String,Object> createUserInternal(String email, String name, String password) {
-        long id = USER_ID_SEQ.incrementAndGet();
-        Map<String,Object> user = new HashMap<>();
-        user.put("id", id);
-        user.put("email", email.toLowerCase());
-        user.put("name", name);
-        user.put("passwordHash", hashPassword(password));
-        USERS.put(id, user);
-        USER_EMAIL_INDEX.put(email.toLowerCase(), id);
-        return user;
-    }
-
-    private static void seedJar(Map<String,Object> user, String name, Double target, Double current, String description) {
-        long id = JAR_ID_SEQ.incrementAndGet();
-        Map<String, Object> jar = new HashMap<>();
-        jar.put("id", id);
-        jar.put("name", name);
-        jar.put("targetAmount", target);
-        jar.put("currentAmount", current);
-        jar.put("description", description);
-        jar.put("createdAt", System.currentTimeMillis());
-        jar.put("progress", computeProgress(current, target));
-        jar.put("userId", user.get("id"));
-        JARS.put(id, jar);
-    }
-
-    private static void seedDeposit(Map<String,Object> user, Long jarId, Double amount, String description) {
-        long id = DEPOSIT_ID_SEQ.incrementAndGet();
-        Map<String, Object> deposit = new HashMap<>();
-        deposit.put("id", id);
-        deposit.put("jarId", jarId);
-        deposit.put("amount", amount);
-        deposit.put("description", description);
-        deposit.put("createdAt", System.currentTimeMillis());
-        deposit.put("userId", user.get("id"));
-        DEPOSITS.put(id, deposit);
+    @PostConstruct
+    public void seedIfEmpty() {
+        if (userRepo.count() == 0) {
+            UserEntity demo = authService.register("john@example.com", "John Doe", "password");
+            JarEntity j1 = jarService.create(demo, "Emergency Fund", 1000.0, "Basic safety net");
+            j1.setCurrentAmount(500.0); jarRepo.save(j1);
+            JarEntity j2 = jarService.create(demo, "Vacation", 2500.0, "Trip to mountains");
+            j2.setCurrentAmount(850.0); jarRepo.save(j2);
+            JarEntity j3 = jarService.create(demo, "New Laptop", 1800.0, "Upgrade gear");
+            j3.setCurrentAmount(300.0); jarRepo.save(j3);
+            jarService.addDeposit(demo, j1, 300.0, "Initial seed");
+            jarService.addDeposit(demo, j1, 200.0, "Monthly save");
+        }
     }
 
     public static void main(String[] args) {
@@ -122,14 +96,14 @@ public class SimpleFinJarApplication {
         }
         String email = String.valueOf(loginRequest.get("email")).toLowerCase();
         String password = String.valueOf(loginRequest.get("password"));
-        Long userId = USER_EMAIL_INDEX.get(email);
-        if (userId == null) return ResponseEntity.status(401).body(error("Invalid credentials"));
-        Map<String,Object> user = USERS.get(userId);
-        if (user == null || !hashPassword(password).equals(user.get("passwordHash"))) {
-            return ResponseEntity.status(401).body(error("Invalid credentials"));
-        }
-        String token = generateJwt(email, String.valueOf(user.get("name")), userId);
-        Map<String,Object> resp = success("Login successful", "user", sanitizeUser(user));
+        UserEntity user = authService.authenticate(email, password);
+        if (user == null) return ResponseEntity.status(401).body(error("Invalid credentials"));
+        String token = generateJwt(user.getEmail(), user.getName(), user.getId());
+        Map<String,Object> sanitized = new HashMap<>();
+        sanitized.put("id", user.getId());
+        sanitized.put("email", user.getEmail());
+        sanitized.put("name", user.getName());
+        Map<String,Object> resp = success("Login successful", "user", sanitized);
         resp.put("token", token);
         return ResponseEntity.ok(resp);
     }
@@ -148,14 +122,19 @@ public class SimpleFinJarApplication {
         String email = String.valueOf(registerRequest.get("email")).toLowerCase();
         String name = String.valueOf(registerRequest.get("name"));
         String password = String.valueOf(registerRequest.get("password"));
-        if (USER_EMAIL_INDEX.containsKey(email)) {
-            return ResponseEntity.status(409).body(error("Email already registered"));
+        try {
+            UserEntity user = authService.register(email, name, password);
+            String token = generateJwt(user.getEmail(), user.getName(), user.getId());
+            Map<String,Object> sanitized = new HashMap<>();
+            sanitized.put("id", user.getId());
+            sanitized.put("email", user.getEmail());
+            sanitized.put("name", user.getName());
+            Map<String,Object> resp = success("Registration successful", "user", sanitized);
+            resp.put("token", token);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).body(error(e.getMessage()));
         }
-        Map<String,Object> user = createUserInternal(email, name, password);
-        String token = generateJwt(email, name, (Long) user.get("id"));
-        Map<String,Object> resp = success("Registration successful", "user", sanitizeUser(user));
-        resp.put("token", token);
-        return ResponseEntity.ok(resp);
     }
 
     // Alias endpoint without /api prefix (fallback)
@@ -206,19 +185,19 @@ public class SimpleFinJarApplication {
             Object uidObj = jws.getBody().get("userId");
             if (uidObj == null) return null;
             Long uid = Long.parseLong(uidObj.toString());
-            return USERS.get(uid);
+            return userRepo.findById(uid).map(u -> {
+                Map<String,Object> m = new HashMap<>();
+                m.put("id", u.getId());
+                m.put("email", u.getEmail());
+                m.put("name", u.getName());
+                return m;
+            }).orElse(null);
         } catch (Exception e) {
             return null;
         }
     }
 
-    private Map<String,Object> sanitizeUser(Map<String,Object> user) {
-        Map<String,Object> clean = new HashMap<>();
-        clean.put("id", user.get("id"));
-        clean.put("email", user.get("email"));
-        clean.put("name", user.get("name"));
-        return clean;
-    }
+    // legacy sanitizeUser removed after JPA migration
 
     private ResponseEntity<Map<String, Object>> unauthorized() {
         Map<String, Object> m = new HashMap<>();
@@ -240,39 +219,47 @@ public class SimpleFinJarApplication {
     public ResponseEntity<Map<String, Object>> userProfile(@RequestHeader(value = "Authorization", required = false) String auth) {
         Map<String,Object> user = authUser(auth);
         if (user == null) return unauthorized();
-        return ResponseEntity.ok(success("Profile fetched", "user", sanitizeUser(user)));
+    Map<String,Object> sanitized = new HashMap<>();
+    sanitized.put("id", user.get("id"));
+    sanitized.put("email", user.get("email"));
+    sanitized.put("name", user.get("name"));
+    return ResponseEntity.ok(success("Profile fetched", "user", sanitized));
     }
 
     @PutMapping("/api/user/update")
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestHeader(value = "Authorization", required = false) String auth,
                                                              @RequestBody(required = false) Map<String, Object> body) {
-        Map<String,Object> user = authUser(auth);
-        if (user == null) return unauthorized();
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
         if (body == null) body = new HashMap<>();
-        if (body.containsKey("name")) user.put("name", body.get("name"));
+        if (body.containsKey("name")) userEntity.setName(String.valueOf(body.get("name")));
         if (body.containsKey("email")) {
             String newEmail = String.valueOf(body.get("email")).toLowerCase();
-            if (!newEmail.equals(user.get("email")) && USER_EMAIL_INDEX.containsKey(newEmail)) {
+            if (!newEmail.equals(userEntity.getEmail()) && userRepo.existsByEmail(newEmail)) {
                 return ResponseEntity.status(409).body(error("Email already in use"));
             }
-            USER_EMAIL_INDEX.remove(user.get("email"));
-            user.put("email", newEmail);
-            USER_EMAIL_INDEX.put(newEmail, (Long) user.get("id"));
+            userEntity.setEmail(newEmail);
         }
-        return ResponseEntity.ok(success("Profile updated", "user", sanitizeUser(user)));
+        userRepo.save(userEntity);
+        Map<String,Object> sanitized = new HashMap<>();
+        sanitized.put("id", userEntity.getId());
+        sanitized.put("email", userEntity.getEmail());
+        sanitized.put("name", userEntity.getName());
+        return ResponseEntity.ok(success("Profile updated", "user", sanitized));
     }
     
     @GetMapping("/api/jars")
     public ResponseEntity<?> getJars(@RequestHeader(value = "Authorization", required = false) String auth,
                                       @RequestParam(name = "flat", required = false) Integer flat) {
-        Map<String,Object> user = authUser(auth);
-        if (user == null) return unauthorized();
-        Long uid = (Long) user.get("id");
-        List<Map<String, Object>> list = JARS.values().stream().filter(j -> uid.equals(j.get("userId"))).collect(Collectors.toList());
-        if (flat != null && flat == 1) {
-            return ResponseEntity.ok(list);
-        }
-        Map<String, Object> response = new HashMap<>();
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
+        List<Map<String,Object>> list = jarService.list(userEntity).stream().map(this::jarToMap).collect(Collectors.toList());
+        if (flat != null && flat == 1) return ResponseEntity.ok(list);
+        Map<String,Object> response = new HashMap<>();
         response.put("success", true);
         response.put("total", list.size());
         response.put("jars", list);
@@ -282,97 +269,63 @@ public class SimpleFinJarApplication {
     @PostMapping("/api/jars")
     public ResponseEntity<Map<String, Object>> createJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                          @RequestBody(required = false) Map<String, Object> body) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-        if (body == null) {
-            return ResponseEntity.badRequest().body(error("Missing request body"));
-        }
-        // Accept legacy frontend field "title" as an alias for "name"
-        if (!body.containsKey("name") && body.containsKey("title")) {
-            body.put("name", body.get("title"));
-        }
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        if (body == null) return ResponseEntity.badRequest().body(error("Missing request body"));
+        if (!body.containsKey("name") && body.containsKey("title")) body.put("name", body.get("title"));
         if (!body.containsKey("name") || !body.containsKey("targetAmount")) {
             return ResponseEntity.badRequest().body(error("Missing required fields: name (or title), targetAmount"));
         }
-        String name = String.valueOf(body.get("name"));
-        Double target = toDouble(body.get("targetAmount"), 0.0);
-        String description = String.valueOf(body.getOrDefault("description", ""));
-        long id = JAR_ID_SEQ.incrementAndGet();
-        Map<String, Object> jar = new HashMap<>();
-        jar.put("id", id);
-        jar.put("name", name);
-        jar.put("targetAmount", target);
-        jar.put("currentAmount", 0.0);
-        jar.put("description", description);
-        jar.put("createdAt", System.currentTimeMillis());
-        jar.put("progress", 0.0);
-    jar.put("userId", user.get("id"));
-    JARS.put(id, jar);
-        return ResponseEntity.ok(success("Jar created", "jar", jar));
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
+        JarEntity jar = jarService.create(userEntity, String.valueOf(body.get("name")), toDouble(body.get("targetAmount"),0.0), String.valueOf(body.getOrDefault("description","")));
+        return ResponseEntity.ok(success("Jar created", "jar", jarToMap(jar)));
     }
 
     @PutMapping("/api/jars/{id}")
     public ResponseEntity<Map<String, Object>> updateJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                          @PathVariable Long id,
                                                          @RequestBody(required = false) Map<String, Object> body) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    Map<String, Object> jar = JARS.get(id);
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        JarEntity jar = jarRepo.findById(id).orElse(null);
         if (jar == null) return ResponseEntity.status(404).body(error("Jar not found"));
-    if (!user.get("id").equals(jar.get("userId"))) return ResponseEntity.status(403).body(error("Forbidden"));
+        if (!jar.getUser().getId().equals(u.get("id"))) return ResponseEntity.status(403).body(error("Forbidden"));
         if (body != null) {
-            if (body.containsKey("name")) jar.put("name", body.get("name"));
-            if (body.containsKey("description")) jar.put("description", body.get("description"));
-            if (body.containsKey("targetAmount")) {
-                Double target = toDouble(body.get("targetAmount"), toDouble(jar.get("targetAmount"), 0.0));
-                jar.put("targetAmount", target);
-                double current = toDouble(jar.get("currentAmount"), 0.0);
-                jar.put("progress", computeProgress(current, target));
-            }
+            jarService.update(jar,
+                body != null && body.containsKey("name") ? String.valueOf(body.get("name")) : null,
+                body != null && body.containsKey("targetAmount") ? toDouble(body.get("targetAmount"), jar.getTargetAmount()) : null,
+                body != null && body.containsKey("description") ? String.valueOf(body.get("description")) : null);
         }
-        return ResponseEntity.ok(success("Jar updated", "jar", jar));
+        return ResponseEntity.ok(success("Jar updated", "jar", jarToMap(jar)));
     }
 
     @DeleteMapping("/api/jars/{id}")
     public ResponseEntity<Map<String, Object>> deleteJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                          @PathVariable Long id) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    Map<String, Object> removed = JARS.get(id);
-    if (removed == null) return ResponseEntity.status(404).body(error("Jar not found"));
-    if (!user.get("id").equals(removed.get("userId"))) return ResponseEntity.status(403).body(error("Forbidden"));
-    JARS.remove(id);
-    DEPOSITS.values().removeIf(d -> id.equals(d.get("jarId")) && user.get("id").equals(d.get("userId")));
-        return ResponseEntity.ok(success("Jar deleted", "jar", removed));
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        JarEntity jar = jarRepo.findById(id).orElse(null);
+        if (jar == null) return ResponseEntity.status(404).body(error("Jar not found"));
+        if (!jar.getUser().getId().equals(u.get("id"))) return ResponseEntity.status(403).body(error("Forbidden"));
+        jarService.delete(jar);
+        return ResponseEntity.ok(success("Jar deleted", "jar", jarToMap(jar)));
     }
 
     @PostMapping("/api/deposits")
     public ResponseEntity<Map<String, Object>> createDeposit(@RequestHeader(value = "Authorization", required = false) String auth,
                                                              @RequestBody(required = false) Map<String, Object> body) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-        if (body == null || !body.containsKey("jarId") || !body.containsKey("amount")) {
-            return ResponseEntity.badRequest().body(error("Missing required fields: jarId, amount"));
-        }
-        Long jarId = toLong(body.get("jarId"));
-    Map<String,Object> jar = JARS.get(jarId);
-    if (jar == null || !user.get("id").equals(jar.get("userId"))) {
-            return ResponseEntity.badRequest().body(error("Jar not found"));
-        }
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        if (body == null || !body.containsKey("jarId") || !body.containsKey("amount")) return ResponseEntity.badRequest().body(error("Missing required fields: jarId, amount"));
+        JarEntity jar = jarRepo.findById(toLong(body.get("jarId"))).orElse(null);
+        if (jar == null || !jar.getUser().getId().equals(u.get("id"))) return ResponseEntity.badRequest().body(error("Jar not found"));
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
         Double amount = toDouble(body.get("amount"), 0.0);
         String description = String.valueOf(body.getOrDefault("description", ""));
-        long id = DEPOSIT_ID_SEQ.incrementAndGet();
-        Map<String, Object> deposit = new HashMap<>();
-        deposit.put("id", id);
-        deposit.put("jarId", jarId);
-        deposit.put("amount", amount);
-        deposit.put("description", description);
-        deposit.put("createdAt", System.currentTimeMillis());
-    deposit.put("userId", user.get("id"));
-    DEPOSITS.put(id, deposit);
-        // Update jar current amount & progress
-        adjustJarAmount(jarId, amount);
-        return ResponseEntity.ok(success("Deposit added", "deposit", deposit));
+        DepositEntity dep = jarService.addDeposit(userEntity, jar, amount, description);
+        return ResponseEntity.ok(success("Deposit added", "deposit", depositToMap(dep)));
     }
 
     // Path variant used by frontend: /api/deposits/jar/{jarId}
@@ -380,42 +333,41 @@ public class SimpleFinJarApplication {
     public ResponseEntity<Map<String, Object>> createDepositForJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                                    @PathVariable Long jarId,
                                                                    @RequestBody(required = false) Map<String, Object> body) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    if (jarId == null) return ResponseEntity.badRequest().body(error("Missing jarId path variable"));
-    Map<String,Object> jar = JARS.get(jarId);
-    if (jar == null || !user.get("id").equals(jar.get("userId"))) return ResponseEntity.badRequest().body(error("Jar not found"));
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        if (jarId == null) return ResponseEntity.badRequest().body(error("Missing jarId path variable"));
+        JarEntity jar = jarRepo.findById(jarId).orElse(null);
+        if (jar == null || !jar.getUser().getId().equals(u.get("id"))) return ResponseEntity.badRequest().body(error("Jar not found"));
         if (body == null || !body.containsKey("amount")) return ResponseEntity.badRequest().body(error("Missing required field: amount"));
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
         Double amount = toDouble(body.get("amount"), 0.0);
         String description = String.valueOf(body.getOrDefault("description", ""));
-        long id = DEPOSIT_ID_SEQ.incrementAndGet();
-        Map<String, Object> deposit = new HashMap<>();
-        deposit.put("id", id);
-        deposit.put("jarId", jarId);
-        deposit.put("amount", amount);
-        deposit.put("description", description);
-    deposit.put("createdAt", System.currentTimeMillis());
-    deposit.put("userId", user.get("id"));
-    DEPOSITS.put(id, deposit);
-        adjustJarAmount(jarId, amount);
-        return ResponseEntity.ok(success("Deposit added", "deposit", deposit));
+        DepositEntity dep = jarService.addDeposit(userEntity, jar, amount, description);
+        return ResponseEntity.ok(success("Deposit added", "deposit", depositToMap(dep)));
     }
 
     @GetMapping("/api/deposits")
     public ResponseEntity<Map<String, Object>> listDeposits(@RequestHeader(value = "Authorization", required = false) String auth,
                                                             @org.springframework.web.bind.annotation.RequestParam(name = "jarId", required = false) Long jarId) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    Long uid = (Long) user.get("id");
-    List<Map<String, Object>> list = DEPOSITS.values().stream().filter(d -> uid.equals(d.get("userId"))).collect(Collectors.toList());
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
+        List<DepositEntity> deps;
         if (jarId != null) {
-            list = list.stream().filter(d -> jarId.equals(d.get("jarId"))).collect(Collectors.toList());
+            JarEntity jar = jarRepo.findById(jarId).orElse(null);
+            if (jar == null || !jar.getUser().getId().equals(userEntity.getId())) return ResponseEntity.status(404).body(error("Jar not found"));
+            deps = jarService.listDepositsForJar(userEntity, jar);
+        } else {
+            deps = jarService.listDeposits(userEntity);
         }
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("total", list.size());
-        response.put("deposits", list);
-        return ResponseEntity.ok(response);
+        List<Map<String,Object>> list = deps.stream().map(this::depositToMap).collect(Collectors.toList());
+        Map<String,Object> resp = new HashMap<>();
+        resp.put("success", true);
+        resp.put("total", list.size());
+        resp.put("deposits", list);
+        return ResponseEntity.ok(resp);
     }
 
     // Convenience legacy style: /api/deposits/jar/{jarId} returning just an array
@@ -423,67 +375,71 @@ public class SimpleFinJarApplication {
     public ResponseEntity<?> listDepositsByJar(@RequestHeader(value = "Authorization", required = false) String auth,
                                                @PathVariable Long jarId,
                                                @RequestParam(name = "flat", required = false) Integer flat) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    List<Map<String, Object>> list = DEPOSITS.values().stream()
-        .filter(d -> jarId.equals(d.get("jarId")) && user.get("id").equals(d.get("userId")))
-        .collect(Collectors.toList());
-        if (flat == null || flat != 0) {
-            return ResponseEntity.ok(list);
-        }
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("total", list.size());
-        response.put("deposits", list);
-        return ResponseEntity.ok(response);
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        JarEntity jar = jarRepo.findById(jarId).orElse(null);
+        if (jar == null || !jar.getUser().getId().equals(u.get("id"))) return ResponseEntity.status(404).body(error("Jar not found"));
+        UserEntity userEntity = userRepo.findById((Long) u.get("id")).orElse(null);
+        if (userEntity == null) return unauthorized();
+        List<Map<String,Object>> list = jarService.listDepositsForJar(userEntity, jar).stream().map(this::depositToMap).collect(Collectors.toList());
+        if (flat == null || flat != 0) return ResponseEntity.ok(list);
+        Map<String,Object> resp = new HashMap<>();
+        resp.put("success", true);
+        resp.put("total", list.size());
+        resp.put("deposits", list);
+        return ResponseEntity.ok(resp);
     }
 
     @PutMapping("/api/deposits/{id}")
+    @Transactional
     public ResponseEntity<Map<String, Object>> updateDeposit(@RequestHeader(value = "Authorization", required = false) String auth,
                                                              @PathVariable Long id,
                                                              @RequestBody(required = false) Map<String, Object> body) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    Map<String, Object> dep = DEPOSITS.get(id);
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        DepositEntity dep = depositRepo.findById(id).orElse(null);
         if (dep == null) return ResponseEntity.status(404).body(error("Deposit not found"));
-    if (!user.get("id").equals(dep.get("userId"))) return ResponseEntity.status(403).body(error("Forbidden"));
-        double oldAmount = toDouble(dep.get("amount"), 0.0);
+        if (!dep.getUser().getId().equals(u.get("id"))) return ResponseEntity.status(403).body(error("Forbidden"));
+        double oldAmount = dep.getAmount();
         if (body != null) {
             if (body.containsKey("amount")) {
                 double newAmt = toDouble(body.get("amount"), oldAmount);
-                dep.put("amount", newAmt);
+                dep.setAmount(newAmt);
                 double delta = newAmt - oldAmount;
-                adjustJarAmount(toLong(dep.get("jarId")), delta);
+                JarEntity jar = dep.getJar();
+                jar.setCurrentAmount(jar.getCurrentAmount() + delta);
+                jarRepo.save(jar);
             }
-            if (body.containsKey("description")) dep.put("description", body.get("description"));
+            if (body.containsKey("description")) dep.setDescription(String.valueOf(body.get("description")));
         }
-        return ResponseEntity.ok(success("Deposit updated", "deposit", dep));
+        depositRepo.save(dep);
+        return ResponseEntity.ok(success("Deposit updated", "deposit", depositToMap(dep)));
     }
 
     @DeleteMapping("/api/deposits/{id}")
+    @Transactional
     public ResponseEntity<Map<String, Object>> deleteDeposit(@RequestHeader(value = "Authorization", required = false) String auth,
                                                              @PathVariable Long id) {
-    Map<String,Object> user = authUser(auth);
-    if (user == null) return unauthorized();
-    Map<String, Object> dep = DEPOSITS.get(id);
+        Map<String,Object> u = authUser(auth);
+        if (u == null) return unauthorized();
+        DepositEntity dep = depositRepo.findById(id).orElse(null);
         if (dep == null) return ResponseEntity.status(404).body(error("Deposit not found"));
-    if (!user.get("id").equals(dep.get("userId"))) return ResponseEntity.status(403).body(error("Forbidden"));
-    DEPOSITS.remove(id);
-        double amount = toDouble(dep.get("amount"), 0.0);
-        adjustJarAmount(toLong(dep.get("jarId")), -amount);
-        return ResponseEntity.ok(success("Deposit deleted", "deposit", dep));
+        if (!dep.getUser().getId().equals(u.get("id"))) return ResponseEntity.status(403).body(error("Forbidden"));
+        JarEntity jar = dep.getJar();
+        jar.setCurrentAmount(jar.getCurrentAmount() - dep.getAmount());
+        depositRepo.delete(dep);
+        jarRepo.save(jar);
+        return ResponseEntity.ok(success("Deposit deleted", "deposit", depositToMap(dep)));
     }
 
     @PostMapping("/api/jars/{id}/recalc")
     public ResponseEntity<Map<String, Object>> recalc(@org.springframework.web.bind.annotation.PathVariable Long id) {
-        Map<String, Object> jar = JARS.get(id);
+        JarEntity jar = jarRepo.findById(id).orElse(null);
         if (jar == null) return ResponseEntity.status(404).body(error("Jar not found"));
-    double current = DEPOSITS.values().stream()
-        .filter(d -> id.equals(d.get("jarId")) && jar.get("userId").equals(d.get("userId")))
-        .mapToDouble(d -> toDouble(d.get("amount"), 0.0)).sum();
-        jar.put("currentAmount", current);
-        jar.put("progress", computeProgress(current, toDouble(jar.get("targetAmount"), 0.0)));
-        return ResponseEntity.ok(success("Recalculated", "jar", jar));
+        double current = depositRepo.findByJarAndUser(jar, jar.getUser()).stream().mapToDouble(DepositEntity::getAmount).sum();
+        jar.setCurrentAmount(current);
+        jarRepo.save(jar);
+        return ResponseEntity.ok(success("Recalculated", "jar", jarToMap(jar)));
     }
 
     // ================= Helper methods =================
@@ -492,13 +448,30 @@ public class SimpleFinJarApplication {
         return Math.min(100.0, (current == null ? 0.0 : current) / target * 100.0);
     }
 
-    private static void adjustJarAmount(Long jarId, double delta) {
-        Map<String, Object> jar = JARS.get(jarId);
-        if (jar == null) return;
-        double current = toDouble(jar.get("currentAmount"), 0.0) + delta;
-        jar.put("currentAmount", current);
-        double target = toDouble(jar.get("targetAmount"), 0.0);
-        jar.put("progress", computeProgress(current, target));
+    // In-memory adjustJarAmount removed; persistence handles aggregation
+
+    private Map<String,Object> jarToMap(JarEntity j) {
+        Map<String,Object> m = new HashMap<>();
+        m.put("id", j.getId());
+        m.put("name", j.getName());
+        m.put("targetAmount", j.getTargetAmount());
+        m.put("currentAmount", j.getCurrentAmount());
+        m.put("description", j.getDescription());
+        m.put("createdAt", j.getCreatedAt() == null ? null : j.getCreatedAt().toEpochMilli());
+        m.put("progress", computeProgress(j.getCurrentAmount(), j.getTargetAmount()));
+        m.put("userId", j.getUser() != null ? j.getUser().getId() : null);
+        return m;
+    }
+
+    private Map<String,Object> depositToMap(DepositEntity d) {
+        Map<String,Object> m = new HashMap<>();
+        m.put("id", d.getId());
+        m.put("jarId", d.getJar() != null ? d.getJar().getId() : null);
+        m.put("amount", d.getAmount());
+        m.put("description", d.getDescription());
+        m.put("createdAt", d.getCreatedAt() == null ? null : d.getCreatedAt().toEpochMilli());
+        m.put("userId", d.getUser() != null ? d.getUser().getId() : null);
+        return m;
     }
 
     private static Double toDouble(Object o, Double def) {

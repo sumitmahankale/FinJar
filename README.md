@@ -8,7 +8,7 @@ Smart, goal‑based personal savings manager. Create “jars” for financial go
 
 ---
 
-## ✨ Core Features
+## Core Features
 
 | Category | Feature | Description |
 |----------|---------|-------------|
@@ -25,13 +25,14 @@ Smart, goal‑based personal savings manager. Create “jars” for financial go
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 **Backend**
 * Java 8 (Spring Boot 2.7.x)
 * Spring Web, Actuator
+* Spring Data JPA (MySQL persistence)
 * JSON Web Tokens via `jjwt` (HS256)
-* In‑memory data stores (Maps) for Users / Jars / Deposits
+* BCrypt password hashing (legacy hashes auto‑upgraded on successful login)
 
 **Frontend**
 * React + Vite
@@ -46,12 +47,15 @@ Smart, goal‑based personal savings manager. Create “jars” for financial go
 
 ---
 
-## 📦 Project Structure (Current)
+## Project Structure (Current)
 ```
 FinJar/
    backend/
-      src/main/java/com/SimpleFinJarApplication.java  # All endpoints (monolithic style)
+   src/main/java/com/SimpleFinJarApplication.java  # Monolithic controller (to be modularized)
       src/main/java/com/util/JwtUtil.java             # JWT utility
+   src/main/java/com/model/*                       # JPA entities (User, Jar, Deposit)
+   src/main/java/com/repo/*                        # Spring Data repositories
+   src/main/java/com/service/*                     # Auth & Jar services
       resources/application.properties
    frontend/
       src/Components/ (Dashboard, Jars, Reports, Auth pages ...)
@@ -61,7 +65,7 @@ FinJar/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Backend
 ```bash
@@ -94,7 +98,7 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ---
 
-## 🔌 API Summary
+## API Summary
 ```
 GET    /health
 GET    /api/health
@@ -124,51 +128,51 @@ Legacy compatibility routes exist (`/auth/*`, `/api/users/*`) and will be deprec
 
 ---
 
-## 📊 Reports Module
-Features: aggregate totals, jar performance ranking, last 6‑month trend, CSV export (jar performance). Uses live in-memory data; refresh button refetches.
+## Reports Module
+Features: aggregate totals, jar performance ranking, last 6‑month trend, CSV export (jar performance). Data now persisted in MySQL; refresh button refetches current server state.
 
 ---
 
-## 🔐 Security Notes
-Current JWT auth with HS256; token lifetime 1 hour. Password hashing presently a simple hash placeholder (sufficient for demo only) – planned upgrade to BCrypt. No server‑side logout blacklist yet. Protect secret in production via environment variables.
+## Security Notes
+JWT auth (HS256) with 1h access token validity. Passwords stored with BCrypt; any legacy demo user hashes are transparently upgraded on login. No server‑side token revocation list (logout is client‑side). Protect `FINJAR_JWT_SECRET` and database credentials via environment variables.
 
 ---
 
-## ⚠️ Known Limitations (Next Targets)
-* Password hashing upgrade (BCrypt + strength policy)
-* Persistence (H2/Postgres) – current data lost on restart
-* Validation (Bean Validation) & standardized error schema
-* Refresh token flow & shorter access token TTL
-* Monetary precision move from `double` → `BigDecimal`
+## Known Limitations (Next Targets)
+* Validation layer (Bean Validation) & standardized error schema
+* Refresh token / rotation (current single access token only)
+* Monetary precision migration from `double` to `BigDecimal`
 * Pagination & sorting for large jar / deposit sets
 * Brute-force protection & rate limiting
-* Modular layered backend (controller/service/repository)
+* Modular layered refactor (separate controllers + DTOs + mappers)
+* Global exception handling & error codes
+* OpenAPI / Swagger documentation
 
 ---
 
-## 🗺 Roadmap Snapshot
-1. Secure password hashing (BCrypt)
-2. Persistence + JPA entities
-3. Validation & global exception handler
-4. Refresh tokens & token rotation
-5. BigDecimal monetary fields
-6. Pagination & sorting
-7. Rate limiting / login attempt throttle
-8. Layered refactor + DTOs + OpenAPI
-9. Test suite & CI
-10. Categories & recurring deposits
+## Roadmap Snapshot
+1. Validation & global exception handler
+2. Refresh tokens & rotation
+3. BigDecimal monetary fields
+4. Pagination & sorting
+5. Rate limiting / login attempt throttle
+6. Layered refactor + DTOs + mapping
+7. OpenAPI spec + Swagger UI
+8. Test suite & CI pipeline
+9. Categories & recurring deposits
+10. Export / analytics enhancements
 
 ---
 
-## 🤝 Contributing
+## Contributing
 PRs welcome for security hardening, persistence, validation, and architectural refactor. Use conventional commits where possible.
 
 ---
 
-## 📄 License
+## License
 MIT – see `LICENSE`.
 
 ---
 
-## ✅ Status
-Core functional MVP delivered: user auth (JWT), per‑user jars & deposits, reporting, profile management, responsive UI. See limitations & roadmap for planned enhancements.
+## Status
+Core functional MVP delivered: JWT auth, per‑user jars & deposits, reporting, profile management, MySQL persistence, BCrypt hashing. See limitations & roadmap for planned enhancements.
