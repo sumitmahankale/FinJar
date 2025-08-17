@@ -158,8 +158,12 @@ public class SimpleFinJarApplication {
     private com.util.JwtUtil jwtUtil;
     private com.util.JwtUtil jwt() {
         if (jwtUtil == null) {
-            String secret = System.getenv().getOrDefault("FINJAR_JWT_SECRET", "ChangeMe_AtLeast32Chars_Long_Secret_Key_123");
-            jwtUtil = com.util.JwtUtil.withDefaults(secret);
+            Map<String,String> env = System.getenv();
+            String secret = env.getOrDefault("FINJAR_JWT_SECRET", env.getOrDefault("JWT_SECRET", "ChangeMe_AtLeast32Chars_Long_Secret_Key_123"));
+            String expMsStr = env.getOrDefault("FINJAR_JWT_EXPIRATION_MS", env.getOrDefault("JWT_EXPIRATION", "3600000"));
+            long expMs;
+            try { expMs = Long.parseLong(expMsStr); } catch (Exception e) { expMs = 3600000L; }
+            jwtUtil = new com.util.JwtUtil(secret, expMs);
         }
         return jwtUtil;
     }
